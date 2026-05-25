@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>LBM-Watcher</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* Neutralskala — durchgehend, dunkel→hell */
+    --n900: #08090b;   /* base bg */
+    --n850: #0e0f12;
+    --n800: #131418;   /* panel */
+    --n750: #181a1f;   /* panel-2 / elevated */
+    --n700: #20232a;
+    --n600: #2c3038;   /* hairline strong */
+    --n500: #3a3f4a;
+    --n400: #5b626f;
+    --n300: #828a98;   /* dim text — AA auf n900 */
+    --n200: #a8afba;   /* secondary text */
+    --n100: #d4d8df;
+    --n050: #eef0f3;   /* primary text */
+    /* Semantische Aliase (Altnamen bleiben kompatibel) */
+    --bg: var(--n900);
+    --panel: var(--n800);
+    --panel-2: var(--n750);
+    --line: var(--n700);
+    --line-2: var(--n600);
+    --ink: var(--n050);
+    --ink-dim: var(--n200);
+    --ink-faint: var(--n300);
+    --accent: #eaf24d;        /* eine ruhige, „teure" Signalfarbe statt reinweiß */
+    --accent-dim: #9aa033;
+    --real: #e8eaee;
+    --proj: #6a717e;
+    --warn: #f2c14d;
+    --good: #6ce0a8;
+    --danger: #f2734d;
+    /* Chart-spezifisch — vorher hartcodiert im SVG */
+    --grid: #20232a;
+    --axis: #828a98;
+    --mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', ui-monospace, monospace;
+    --r: 7px;                  /* einheitlicher Radius — weiche, teure Kante statt 0 */
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--ink); font-family: var(--mono); font-size: 13px; line-height: 1.5; }
+  body { padding: 28px max(22px, env(safe-area-inset-right)) calc(28px + env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left)); -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+
+  .masthead { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid var(--line-2); padding-bottom: 16px; margin-bottom: 24px; gap: 16px; }
+  .masthead h1 { font-size: 16px; font-weight: 800; letter-spacing: 0.34em; text-transform: uppercase; position: relative; padding-left: 14px; }
+  .masthead h1::before { content:''; position:absolute; left:0; top:50%; transform:translateY(-50%); width:4px; height:18px; background:var(--accent); }
+  .masthead .sub { color: var(--ink-faint); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; }
+  .eta { display:flex; gap:28px; align-items:flex-end; }
+  .eta .blk { text-align:right; }
+  .eta .blk .lbl { font-size:9px; letter-spacing:0.2em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:3px; }
+  .eta .blk .num { font-size:18px; font-weight:700; letter-spacing:0.02em; color:var(--ink); }
+  .eta .blk.primary .num { color: var(--accent); }
+
+  /* Headline metrics */
+  .focus { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+  .focus .card { background: linear-gradient(160deg, var(--panel) 0%, var(--n850) 100%); border: 1px solid var(--line-2); border-radius: var(--r); padding: 20px 22px; position: relative; overflow: hidden; }
+  .focus .card::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--n500); }
+  .focus .card.alert::before { background: var(--danger); }
+  .focus .card.key::before { background: var(--accent); }
+  .focus .label { font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 10px; }
+  .focus .val { font-size: 40px; font-weight: 800; letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .focus .unit { font-size: 13px; color: var(--ink-dim); font-weight: 500; margin-left: 5px; letter-spacing: 0.02em; }
+  .focus .note { font-size: 10px; color: var(--ink-faint); margin-top: 10px; letter-spacing: 0.04em; line-height: 1.5; }
+
+  /* Secondary stats */
+  .stripe { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; margin-bottom: 18px; }
+  .stripe .cell { background: var(--panel); padding: 13px 14px; }
+  .stripe .k { font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-faint); }
+  .stripe .v { font-size: 19px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .stripe .v small { font-size: 11px; color: var(--ink-dim); font-weight: 500; letter-spacing: 0; }
+
+  /* Layout */
+  .grid { display: grid; grid-template-columns: 1fr 360px; gap: 16px; align-items: start; }
+
+  .panel { background: var(--panel); border: 1px solid var(--line-2); border-radius: var(--r); overflow: hidden; }
+  .panel .head { display:flex; justify-content:space-between; align-items:center; padding: 12px 16px; border-bottom: 1px solid var(--line); gap: 10px; }
+  .panel .head h2 { font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-dim); font-weight: 700; }
+  .panel .body { padding: 16px; }
+
+  /* Chart */
+  #chart, #lbmChart { width: 100%; display: block; }
+  .legend { display: flex; gap: 16px; padding: 10px 16px 14px; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-dim); flex-wrap: wrap; align-items: center; }
+  .legend i { display:inline-block; width: 18px; height: 2px; vertical-align: middle; margin-right: 5px; }
+
+  /* Inputs */
+  .field { margin-bottom: 12px; }
+  .field label { display:block; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 5px; }
+  .field input { width: 100%; background: var(--n900); border: 1px solid var(--line-2); border-radius: 5px; color: var(--ink); font-family: var(--mono); font-size: 15px; padding: 10px 12px; outline: none; transition: border-color .15s, box-shadow .15s; font-variant-numeric: tabular-nums; }
+  .field input::placeholder { color: var(--n400); }
+  .field input:focus { border-color: var(--accent-dim); box-shadow: 0 0 0 3px rgba(234,242,77,0.08); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .btn { width: 100%; background: var(--accent); color: #0b0c08; border: none; border-radius: 5px; font-family: var(--mono); font-size: 11px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; padding: 12px; cursor: pointer; transition: filter .15s, transform .05s; }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:active { transform: translateY(1px); }
+  .btn.ghost { background: transparent; color: var(--ink-dim); border: 1px solid var(--line-2); }
+  .btn.ghost:hover { color: var(--ink); border-color: var(--n400); filter:none; }
+  .btn.danger.ghost:hover { color: var(--danger); border-color: var(--danger); }
+
+  .slider-wrap { margin: 6px 0 2px; }
+  .slider-wrap .topline { display:flex; justify-content:space-between; align-items:baseline; font-size: 9px; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink-dim); margin-bottom:8px;}
+  .slider-wrap .topline b { color: var(--accent); font-size: 13px; font-weight: 700; }
+  input[type=range]{ -webkit-appearance:none; appearance:none; width:100%; height:3px; background:var(--line-2); border-radius:2px; outline:none;}
+  input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; width:16px; height:16px; background:var(--accent); cursor:pointer; border-radius:50%; box-shadow:0 0 0 4px var(--n900);}
+  input[type=range]::-moz-range-thumb{ width:16px; height:16px; background:var(--accent); cursor:pointer; border:none; border-radius:50%; box-shadow:0 0 0 4px var(--n900);}
+
+  /* Table */
+  .tablewrap { max-height: 360px; overflow-y: auto; border-top: 1px solid var(--line); -webkit-overflow-scrolling: touch; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { position: sticky; top: 0; background: var(--panel-2); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-dim); font-weight: 700; z-index: 1; }
+  td:first-child, th:first-child { text-align: left; }
+  tr.proj td { color: var(--proj); }
+  tr.real td { color: var(--real); }
+  tr:hover td { background: var(--panel-2); }
+  .del { color: var(--ink-faint); cursor: pointer; padding: 0 6px; font-size: 13px; }
+  .del:hover { color: var(--danger); }
+  .tag { font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase; padding: 1px 5px; border: 1px solid var(--line-2); border-radius: 3px; color: var(--ink-faint); }
+
+  .hint { font-size: 9.5px; color: var(--ink-faint); letter-spacing: 0.03em; margin-top: 8px; line-height: 1.65; }
+  .bar { display:flex; gap:8px; margin-top: 10px; }
+  .bar .btn { width: auto; flex: 1; }
+  .statusmsg { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-dim); padding: 8px 16px; min-height: 28px; }
+  /* ===== Responsive ===== */
+  /* Tablet: rechte Spalte unter den Hauptbereich */
+  @media (max-width: 880px) {
+    .grid { grid-template-columns: 1fr; }
+    .stripe { grid-template-columns: repeat(4, 1fr); }
+  }
+  /* Phone (vertikal) */
+  @media (max-width: 560px) {
+    body { padding: 18px 14px calc(20px + env(safe-area-inset-bottom)); font-size: 13px; }
+    .masthead { flex-direction: column; align-items: stretch; gap: 16px; padding-bottom: 14px; margin-bottom: 18px; }
+    .masthead h1 { font-size: 14px; letter-spacing: 0.28em; }
+    .eta { gap: 0; justify-content: space-between; }
+    .eta .blk { text-align: left; flex: 1; }
+    .eta .blk + .blk { text-align: left; padding-left: 12px; border-left: 1px solid var(--line); }
+    .eta .blk .lbl { font-size: 8px; letter-spacing: 0.12em; }
+    .eta .blk .num { font-size: 15px; }
+
+    .focus { grid-template-columns: 1fr; gap: 10px; margin-bottom: 12px; }
+    .focus .card { padding: 16px 18px; display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; }
+    .focus .label { width: 100%; margin-bottom: 6px; }
+    .focus .val { font-size: 34px; }
+    .focus .note { width: 100%; }
+
+    .stripe { grid-template-columns: repeat(2, 1fr); }
+    .stripe .v { font-size: 17px; }
+
+    .grid { gap: 12px; }
+    .panel .body { padding: 14px; }
+    .legend { gap: 10px 14px; font-size: 8.5px; }
+
+    /* Tabelle: horizontal scrollbar, Datum bleibt sichtbar */
+    .tablewrap { max-height: none; overflow-x: auto; }
+    table { font-size: 11px; }
+    th, td { padding: 8px 9px; }
+    td:first-child, th:first-child { position: sticky; left: 0; background: var(--panel); z-index: 2; }
+    th:first-child { background: var(--panel-2); z-index: 3; }
+    tr:hover td:first-child { background: var(--panel-2); }
+
+    .bar { flex-direction: column; }
+    .bar .btn { width: 100%; }
+    .field input { font-size: 16px; } /* iOS-Zoom-Schutz */
+  }
+  @media (hover: none) {
+    .btn:hover, .btn.ghost:hover { filter: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="masthead">
+    <h1>LBM-Watcher</h1>
+    <div class="eta">
+      <div class="blk primary">
+        <div class="lbl">Ziel-Datum (≤<span id="goalBfInfo">12</span>% KFA)</div>
+        <div class="num" id="etaDate">—</div>
+      </div>
+      <div class="blk">
+        <div class="lbl">Verbleibend</div>
+        <div class="num" id="etaDays">—</div>
+      </div>
+      <div class="blk">
+        <div class="lbl">Ziel-Gewicht (errechnet)</div>
+        <div class="num" id="etaWeight">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HEADLINE: Target-Defizit + Minimum Intake -->
+  <div class="focus">
+    <div class="card">
+      <div class="label">Target-Defizit · heute</div>
+      <div><span class="val" id="fTarget">—</span><span class="unit">kcal/Tag</span></div>
+      <div class="note" id="fTargetNote">— % des Alpert-Limits</div>
+    </div>
+    <div class="card key">
+      <div class="label">Target-Intake · heute</div>
+      <div><span class="val" id="fIntake">—</span><span class="unit">kcal</span></div>
+      <div class="note" id="fIntakeNote">TDEE − Target-Defizit</div>
+    </div>
+    <div class="card alert">
+      <div class="label">Minimum Intake · Untergrenze</div>
+      <div><span class="val" id="fMin">—</span><span class="unit">kcal</span></div>
+      <div class="note" id="fMinNote">unter diesem Wert → LBM-Risiko</div>
+    </div>
+  </div>
+
+  <!-- SECONDARY STRIP -->
+  <div class="stripe">
+    <div class="cell"><div class="k">Gewicht (geglättet)</div><div class="v" id="sWeight">—<small> kg</small></div></div>
+    <div class="cell"><div class="k">Trend 7T</div><div class="v" id="sTrend">—<small> kg/Wo</small></div></div>
+    <div class="cell"><div class="k">KFA (geglättet)</div><div class="v" id="sBf">—<small> %</small></div></div>
+    <div class="cell"><div class="k">LBM</div><div class="v" id="sLbm">—<small> kg</small></div></div>
+    <div class="cell"><div class="k">LBM Δ real (geglättet)</div><div class="v" id="sLbmReal">—<small> kg</small></div></div>
+    <div class="cell"><div class="k">BMI</div><div class="v" id="sBmi">—</div></div>
+    <div class="cell"><div class="k">FFMI</div><div class="v" id="sFfmi">—</div></div>
+  </div>
+
+  <div class="grid">
+    <!-- LEFT: chart + table -->
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="head"><h2>Gewichtsverlauf & Korridor</h2><span class="sub" style="font-size:9px;color:var(--ink-faint);" id="goalInfo">Ziel ≤12% KFA</span></div>
+        <svg id="chart" viewBox="0 0 760 300" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="legend">
+          <span><i style="background:var(--real)"></i>Real (geglättet)</span>
+          <span><i style="background:var(--proj)"></i>Projektion</span>
+          <span><i style="background:var(--line-2);height:8px;width:8px;"></i>Korridor (LBM-Unsicherheit)</span>
+          <span><i style="background:var(--ink-faint);border-top:1px dashed var(--ink-dim);height:0;"></i>Ziel</span>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="head"><h2>LBM-Wächter · real vs. erwartet</h2><span class="sub" style="font-size:9px;color:var(--ink-faint);" id="lbmGuardInfo">—</span></div>
+        <svg id="lbmChart" viewBox="0 0 760 170" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="legend">
+          <span><i style="background:var(--good)"></i>LBM real (geglättet)</span>
+          <span><i style="background:var(--line-2);height:8px;width:8px;"></i>Planungsband 10–20%</span>
+          <span><i style="background:var(--proj);border-top:1px dashed var(--proj);height:0;"></i>Slider-Annahme</span>
+          <span id="lbmVerdict" style="color:var(--ink-dim);"></span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="head"><h2>Datensätze</h2><span class="sub" style="font-size:9px;color:var(--ink-faint);" id="countInfo">—</span></div>
+        <div class="tablewrap">
+          <table id="tbl">
+            <thead><tr><th>Datum</th><th>Gew.</th><th>KFA%</th><th>KFA~</th><th>LBM</th><th>BMI</th><th>Target Def.</th><th>Target In</th><th>Min. In</th><th></th></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: input + params -->
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="head"><h2>Eintrag</h2></div>
+        <div class="body">
+          <div class="field"><label>Datum</label><input type="date" id="iDate"></div>
+          <div class="row2">
+            <div class="field"><label>Gewicht kg</label><input type="number" step="0.01" id="iWeight" placeholder="85.40"></div>
+            <div class="field"><label>KFA % (optional)</label><input type="number" step="0.1" id="iBf" placeholder="25.0"></div>
+          </div>
+          <button class="btn" id="addBtn">Eintragen</button>
+          <div class="hint">Gewicht und KFA werden per EWMA geglättet (exponentiell gewichtet, Halbwertszeit ~2,4 Tage), um Bioimpedanz-Rauschen zu dämpfen. Sicherheitsschirm (Target/Min-Intake) rechnet auf den geglätteten Werten; Rohwerte bleiben in Tabelle und Chart sichtbar. KFA optional — fehlt sie, wird der letzte bekannte Rohwert fortgeschrieben.</div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="head"><h2>Parameter</h2></div>
+        <div class="body">
+          <div class="slider-wrap">
+            <div class="topline"><span>Target-Aggressivität</span><b id="aggVal">75%</b></div>
+            <input type="range" id="agg" min="50" max="100" value="75" step="1">
+            <div class="hint">Anteil des Alpert-Limits.</div>
+          </div>
+          <div class="slider-wrap" style="margin-top:14px;">
+            <div class="topline"><span>LBM-Verlust-Anteil</span><b id="lbmVal">15%</b></div>
+            <input type="range" id="lbmpct" min="0" max="30" value="15" step="1">
+            <div class="hint">Anteil des Gewichtsverlusts, der als Magermasse projiziert wird.</div>
+          </div>
+          <div class="row2" style="margin-top:14px;">
+            <div class="field"><label>TDEE kcal</label><input type="number" id="iTdee" placeholder="z.B. 2400"></div>
+            <div class="field"><label>Alpert kcal/kg</label><input type="number" id="iAlpert" value="69"></div>
+          </div>
+          <div class="row2">
+            <div class="field"><label>Größe cm</label><input type="number" id="iHeight" placeholder="z.B. 175"></div>
+            <div class="field"><label>Ziel KFA %</label><input type="number" step="0.1" id="iGoalBf" value="12"></div>
+          </div>
+          <div class="field"><label>Sicherheitspuffer kcal</label><input type="number" id="iBuffer" value="100"></div>
+          <div class="hint">Min.Intake = TDEE − (Alpert-Limit − Puffer).</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="head"><h2>Daten</h2></div>
+        <div class="statusmsg" id="status">Bereit.</div>
+        <div class="body" style="padding-top:0;">
+          <div class="bar">
+            <button class="btn ghost" id="exportBtn">Export CSV</button>
+            <button class="btn ghost" id="importBtn">Import CSV</button>
+          </div>
+          <input type="file" id="fileInput" accept=".csv" style="display:none;">
+          <div class="bar"><button class="btn ghost" id="clearBtn">Storage löschen</button></div>
+          <div class="hint">Daten liegen lokal im Browser (localStorage) — kein Login, keine Cloud. Export sichert deinen kompletten Stand als CSV; „Storage löschen" entfernt alle lokal gespeicherten Daten unwiderruflich. Regelmäßig exportieren.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORE_KEY = 'telemetrie_v1';
+let DATA = [];   // {date:'YYYY-MM-DD', w:Number, bf:Number|null, type:'real'|'proj'}
+let P = { agg:75, lbmpct:15, tdee:null, alpert:69, height:null, goalBf:12, buffer:100 };
+
+// ---------- Persistenz (localStorage — funktioniert auf GitHub Pages, kein Login/Cloud) ----------
+function save(){
+  const payload = JSON.stringify({data:DATA, params:P});
+  try { localStorage.setItem(STORE_KEY, payload); }
+  catch(e){ /* z.B. Private-Mode-Quota: dann nur Session */ }
+}
+function load(){
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if(raw){ const o = JSON.parse(raw); DATA=o.data||[]; P=Object.assign(P,o.params||{}); return true; }
+  } catch(e){}
+  return false;
+}
+function clearStorage(){
+  try { localStorage.removeItem(STORE_KEY); } catch(e){}
+}
+
+// ---------- Math ----------
+const EWMA_ALPHA = 0.25; // Halbwertszeit ~2,4 Tage
+let _ewmaCache = null;
+function rebuildEwma(){
+  const reals = DATA.filter(d=>d.type==='real');
+  _ewmaCache = new Map();
+  if(!reals.length) return;
+  let s = reals[0].w;
+  _ewmaCache.set(reals[0].date, s);
+  for(let i=1;i<reals.length;i++){
+    s = EWMA_ALPHA*reals[i].w + (1-EWMA_ALPHA)*s;
+    _ewmaCache.set(reals[i].date, s);
+  }
+}
+function smooth(idx){
+  // EWMA-Trendwert des realen Eintrags an Position idx in DATA
+  if(!DATA[idx] || DATA[idx].type!=='real') {
+    // nächstliegenden realen davor finden
+    for(let i=Math.min(idx,DATA.length-1);i>=0;i--){ if(DATA[i]&&DATA[i].type==='real') return _ewmaCache?.get(DATA[i].date) ?? DATA[i].w; }
+    return null;
+  }
+  if(!_ewmaCache) rebuildEwma();
+  return _ewmaCache.get(DATA[idx].date) ?? DATA[idx].w;
+}
+
+// Geglättete REALE LBM-Trajektorie aus gemessenem Gewicht×(1-KFA), EWMA
+let _lbmCache = null;
+function rebuildLbm(){
+  _lbmCache = [];
+  const h=P.height/100;
+  const reals = DATA.filter(d=>d.type==='real');
+  let lastBf=null, s=null;
+  for(const d of reals){
+    const bf = d.bf!=null ? d.bf : lastBf;
+    if(bf==null) continue;            // vor erstem KFA-Wert keine LBM
+    lastBf=bf;
+    const lbm = d.w*(1-bf/100);
+    s = (s==null) ? lbm : EWMA_ALPHA*lbm + (1-EWMA_ALPHA)*s;
+    _lbmCache.push({date:d.date, lbm:s, raw:lbm});
+  }
+}
+function realLbmSeries(){ if(!_lbmCache) rebuildLbm(); return _lbmCache; }
+function lastKnownBf(idx){
+  for(let i=idx;i>=0;i--){ if(DATA[i] && DATA[i].bf!=null) return DATA[i].bf; }
+  return null;
+}
+
+// EWMA-geglätteter KFA — gleiche Logik wie beim Gewicht.
+// Roh-KFA wird angezeigt, geglätteter KFA treibt Alpert-Limit / Min-Intake (Sicherheitsschirm).
+// Forward-Fill: fehlt an einem realen Tag der KFA, wird der letzte bekannte Rohwert fortgeschrieben,
+// BEVOR geglättet wird — so bleibt die EWMA-Reihe lückenlos.
+let _bfCache = null;
+function rebuildBf(){
+  _bfCache = new Map();
+  const reals = DATA.filter(d=>d.type==='real');
+  let s=null, lastRaw=null;
+  for(const d of reals){
+    const raw = d.bf!=null ? d.bf : lastRaw;
+    if(raw==null) continue;        // vor erstem KFA-Messpunkt: kein geglätteter Wert
+    lastRaw = raw;
+    s = (s==null) ? raw : EWMA_ALPHA*raw + (1-EWMA_ALPHA)*s;
+    _bfCache.set(d.date, s);
+  }
+}
+// geglätteter KFA am realen Eintrag idx (oder nächstliegender davor)
+function smoothBf(idx){
+  if(!_bfCache) rebuildBf();
+  for(let i=Math.min(idx,DATA.length-1);i>=0;i--){
+    if(DATA[i] && DATA[i].type==='real' && _bfCache.has(DATA[i].date)) return _bfCache.get(DATA[i].date);
+  }
+  return null;
+}
+function calcRow(w, bf){
+  const h = P.height ? P.height/100 : null;
+  const bmi = h ? w/(h*h) : null;
+  let lbm=null, ffmi=null, fat=null, alpertLimit=null, target=null, minIntake=null;
+  if(bf!=null){
+    lbm = w*(1-bf/100);
+    ffmi = h ? lbm/(h*h) : null;
+    fat = w-lbm;
+    alpertLimit = fat*P.alpert;
+    target = alpertLimit*(P.agg/100);
+    minIntake = (P.tdee!=null) ? P.tdee-(alpertLimit-P.buffer) : null;
+  }
+  return {bmi,lbm,ffmi,fat,alpertLimit,target,minIntake};
+}
+
+// ---------- Projektion mit LBM-Korridor — Ziel ist KFA, nicht Gewicht ----------
+function buildProjection(){
+  const reals = DATA.filter(d=>d.type==='real');
+  if(reals.length<2) return [];
+  const lastIdx = DATA.map(d=>d.type).lastIndexOf('real');
+  const last = DATA[lastIdx];
+  const startW = smooth(lastIdx) || last.w;
+  const startBf = smoothBf(lastIdx) ?? lastKnownBf(lastIdx) ?? 25;
+  const startLbm = startW*(1-startBf/100);
+  const targetBf = P.goalBf;
+  const out=[];
+  let w=startW;
+  const startDate = new Date(last.date);
+  let day=0;
+  const lbmFracLost = P.lbmpct/100;
+  while(day<600){
+    // aktueller Zustand VOR dem Schritt
+    const lossSoFar = startW - w;
+    const lbmNow = startLbm - lossSoFar*lbmFracLost;
+    const fatNow = w - lbmNow;
+    const bfNow = (fatNow/w)*100;
+    if(bfNow<=targetBf) break;
+    const alpertNow = fatNow*P.alpert;
+    const targetNow = alpertNow*(P.agg/100);
+    const dW = targetNow/7700;
+    w -= dW;
+    if(w<50) break;
+    day++;
+    const lossNew = startW - w;
+    const lbmNew = startLbm - lossNew*lbmFracLost;
+    const fatNew = w - lbmNew;
+    const bfProj = (fatNew/w)*100;
+    const d=new Date(startDate); d.setDate(d.getDate()+day);
+    out.push({date:d.toISOString().slice(0,10), w:+w.toFixed(2), bf:+bfProj.toFixed(1), type:'proj',
+      lbm:lbmNew, fat:fatNew});
+  }
+  return out;
+}
+
+// Korridor-Bänder: optimistisch (lbm 0%) und pessimistisch (höherer LBM-Verlust)
+function corridorBand(pct){
+  const reals = DATA.filter(d=>d.type==='real');
+  if(reals.length<2) return [];
+  const lastIdx = DATA.map(d=>d.type).lastIndexOf('real');
+  const last = DATA[lastIdx];
+  const startW = smooth(lastIdx) || last.w;
+  const startBf = smoothBf(lastIdx) ?? lastKnownBf(lastIdx) ?? 25;
+  const startLbm = startW*(1-startBf/100);
+  const targetBf=P.goalBf;
+  const out=[]; let w=startW; const sd=new Date(last.date); let day=0;
+  while(day<600){
+    const lossSoFar=startW-w;
+    const lbmNow=startLbm - lossSoFar*(pct/100);
+    const fatNow=w-lbmNow;
+    const bfNow=(fatNow/w)*100;
+    if(bfNow<=targetBf) break;
+    const targetNow=fatNow*P.alpert*(P.agg/100);
+    w -= targetNow/7700; if(w<50)break;
+    day++;
+    const d=new Date(sd); d.setDate(d.getDate()+day);
+    out.push({date:d.toISOString().slice(0,10), w:+w.toFixed(2)});
+  }
+  return out;
+}
+
+// ---------- Render ----------
+function render(){
+  DATA.sort((a,b)=>a.date.localeCompare(b.date));
+  rebuildEwma();
+  rebuildBf();
+  rebuildLbm();
+  // headline: letzter realer Eintrag mit KFA
+  const reals = DATA.filter(d=>d.type==='real');
+  let headW=null, headBf=null, headBfRaw=null, headIdx=-1;
+  for(let i=DATA.length-1;i>=0;i--){ if(DATA[i].type==='real'){ headIdx=i; break; } }
+  let r=null, sW=null;
+  if(headIdx>=0){
+    sW = smooth(headIdx);
+    headBf = smoothBf(headIdx);          // geglättet → treibt Sicherheitsschirm
+    headBfRaw = lastKnownBf(headIdx);    // roh → nur Anzeige
+    r = calcRow(sW ?? DATA[headIdx].w, headBf);
+  }
+  const $=id=>document.getElementById(id);
+  if(r && r.target!=null){
+    $('fTarget').textContent = Math.round(r.target);
+    $('fTargetNote').textContent = P.agg+'% des Alpert-Limits ('+Math.round(r.alpertLimit)+' kcal)';
+    if(P.tdee!=null){
+      $('fIntake').textContent = Math.round(P.tdee - r.target);
+      $('fIntakeNote').textContent = 'TDEE '+P.tdee+' − '+Math.round(r.target)+' Defizit';
+      $('fMin').textContent = r.minIntake!=null?Math.round(r.minIntake):'—';
+    } else {
+      $('fIntake').textContent='—'; $('fMin').textContent='—'; $('fIntakeNote').textContent='TDEE eintragen';
+    }
+  } else { $('fTarget').textContent='—'; $('fIntake').textContent='—'; $('fMin').textContent='—'; $('fTargetNote').textContent='KFA-Wert nötig'; $('fIntakeNote').textContent='TDEE − Target-Defizit'; }
+
+  $('sWeight').innerHTML = (sW?sW.toFixed(2):'—')+'<small> kg</small>';
+  // Trend: geglättet heute vs vor 7 realen
+  let trend='—';
+  if(reals.length>=8){
+    const a=smooth(headIdx), bIdx=DATA.indexOf(reals[reals.length-8]);
+    const b=smooth(bIdx);
+    if(a&&b) trend=((a-b)).toFixed(2);
+  }
+  $('sTrend').innerHTML = trend+'<small> kg/Wo</small>';
+  $('sBf').innerHTML = (headBf!=null?headBf.toFixed(1):'—')+'<small> %'+(headBfRaw!=null&&Math.abs(headBfRaw-headBf)>=0.1?' · roh '+headBfRaw.toFixed(1):'')+'</small>';
+  $('sLbm').innerHTML = (r&&r.lbm?r.lbm.toFixed(2):'—')+'<small> kg</small>';
+  // Reale LBM-Veränderung (geglättet) seit erstem KFA-Messpunkt
+  const lbmS = realLbmSeries();
+  if(lbmS.length>=2){
+    const deltaReal = lbmS[lbmS.length-1].lbm - lbmS[0].lbm;
+    const warmup = lbmS.length < 21; // <3 Wochen = Einschwingphase
+    const sign = deltaReal>=0?'+':'';
+    const col = warmup ? 'var(--ink-faint)' : (deltaReal < -0.1 ? 'var(--ink)' : 'var(--good)');
+    $('sLbmReal').innerHTML = `<span style="color:${col}">${sign}${deltaReal.toFixed(2)}</span><small> kg${warmup?' ⚠':''}</small>`;
+    $('sLbmReal').title = warmup ? 'Einschwingphase (<3 Wochen) — noch nicht aussagekräftig' : 'Geglätteter realer LBM-Trend seit Messbeginn';
+  } else { $('sLbmReal').innerHTML='—<small> kg</small>'; }
+  $('sBmi').textContent = (r&&r.bmi!=null)?r.bmi.toFixed(2):'—';
+  $('sFfmi').textContent = (r&&r.ffmi)?r.ffmi.toFixed(2):'—';
+
+  if(reals.length){
+    document.getElementById('countInfo').textContent = reals.length+' real · '+reals[0].date+' → '+reals[reals.length-1].date;
+  }
+  $('goalBfInfo').textContent = P.goalBf;
+
+  // ETA: Enddatum, verbleibende Tage, errechnetes Zielgewicht aus Projektion
+  const proj = buildProjection();
+  if(proj.length){
+    const end = proj[proj.length-1];
+    const endDate = new Date(end.date);
+    $('etaDate').textContent = fmtD(end.date);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const remDays = Math.max(0, Math.round((endDate-today)/86400000));
+    $('etaDays').textContent = remDays+' T (~'+(remDays/7).toFixed(0)+' Wo)';
+    $('etaWeight').textContent = end.w.toFixed(1)+' kg';
+  } else {
+    const reachedAlready = headBf!=null && headBf<=P.goalBf;
+    $('etaDate').textContent = reachedAlready?'erreicht':'—';
+    $('etaDays').textContent = reachedAlready?'0 T':'—';
+    $('etaWeight').textContent = '—';
+  }
+
+  renderTable();
+  renderChart();
+  renderLbmChart();
+}
+
+function renderTable(){
+  const tb=document.getElementById('tbody'); tb.innerHTML='';
+  const proj=buildProjection();
+  const all=[...DATA, ...proj];
+  all.forEach((d,i)=>{
+    const isReal=d.type==='real';
+    const idxInData = isReal? DATA.indexOf(d): -1;
+    const bfRaw = isReal ? (d.bf!=null?d.bf:lastKnownBf(idxInData)) : d.bf;  // roh, angezeigt
+    const bfSm  = isReal ? smoothBf(idxInData) : d.bf;                        // geglättet, gerechnet
+    const r=calcRow(d.w, bfSm);   // Sicherheitsschirm rechnet auf geglättetem KFA
+    const tr=document.createElement('tr');
+    tr.className=d.type;
+    tr.innerHTML=`<td>${fmtD(d.date)}</td><td>${d.w.toFixed(2)}</td>`+
+      `<td>${bfRaw!=null?bfRaw.toFixed(1):'—'}</td>`+
+      `<td>${bfSm!=null?bfSm.toFixed(1):'—'}</td>`+
+      `<td>${r.lbm?r.lbm.toFixed(1):'—'}</td>`+
+      `<td>${r.bmi!=null?r.bmi.toFixed(1):'—'}</td>`+
+      `<td>${r.target?Math.round(r.target):'—'}</td>`+
+      `<td>${r.target?Math.round(P.tdee-r.target):'—'}</td>`+
+      `<td>${r.minIntake?Math.round(r.minIntake):'—'}</td>`+
+      `<td>${isReal?`<span class="del" data-i="${idxInData}">✕</span>`:''}</td>`;
+    tb.appendChild(tr);
+  });
+  tb.querySelectorAll('.del').forEach(x=>x.onclick=()=>{ DATA.splice(+x.dataset.i,1); save(); render(); });
+  // auto-scroll an die Real/Proj-Grenze
+  const wrap=document.querySelector('.tablewrap');
+  const firstProj=tb.querySelector('tr.proj');
+  if(firstProj) wrap.scrollTop = firstProj.offsetTop - wrap.clientHeight/2;
+}
+
+function fmtD(iso){ const [y,m,d]=iso.split('-'); return d+'.'+m+'.'+y.slice(2); }
+
+function renderChart(){
+  const svg=document.getElementById('chart');
+  const W=760,H=300,padL=42,padR=14,padT=16,padB=28;
+  const reals=DATA.filter(d=>d.type==='real').map((d,i)=>({...d, sw:smooth(DATA.indexOf(d))}));
+  const proj=buildProjection();
+  // Korridor aus festen LBM-Verlust-Annahmen, konsistent mit dem LBM-Wächter:
+  // 10% = optimistisch (kürzere Strecke, höheres Endgewicht), 20% = pessimistisch (länger, tiefer).
+  // Das Band fächert zum Ziel hin auf — Unsicherheit über das Endgewicht wächst mit der Distanz.
+  const bandOpt=corridorBand(10);  // optimistisch
+  const bandPes=corridorBand(20);  // pessimistisch
+  const series=[...reals.map(d=>({x:d.date,y:d.sw||d.w})), ...proj.map(d=>({x:d.date,y:d.w}))];
+  if(series.length<2){ svg.innerHTML='<text x="380" y="150" fill="var(--axis)" text-anchor="middle" font-size="12">Mindestens 2 Realdaten nötig</text>'; return; }
+  const dates=series.map(s=>+new Date(s.x));
+  const minX=Math.min(...dates), maxX=Math.max(...dates);
+  const ys=series.map(s=>s.y);
+  const goalW = proj.length? proj[proj.length-1].w : Math.min(...ys);
+  ys.push(goalW);
+  const minY=Math.min(...ys)-0.5, maxY=Math.max(...ys)+0.5;
+  const sx=t=>padL+(t-minX)/(maxX-minX)*(W-padL-padR);
+  const sy=v=>padT+(maxY-v)/(maxY-minY)*(H-padT-padB);
+  const path=arr=>arr.map((p,i)=>(i?'L':'M')+sx(+new Date(p.x)).toFixed(1)+','+sy(p.y).toFixed(1)).join(' ');
+
+  let g='';
+  // grid + y labels
+  const steps=5;
+  for(let i=0;i<=steps;i++){
+    const v=minY+(maxY-minY)*i/steps; const yy=sy(v);
+    g+=`<line x1="${padL}" y1="${yy}" x2="${W-padR}" y2="${yy}" stroke="var(--grid)"/>`;
+    g+=`<text x="${padL-6}" y="${yy+3}" fill="var(--axis)" font-size="12" text-anchor="end">${v.toFixed(1)}</text>`;
+  }
+  // goal line (errechnetes Zielgewicht bei Ziel-KFA)
+  const gy=sy(goalW);
+  g+=`<line x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}" stroke="var(--n400)" stroke-dasharray="4 4"/>`;
+  g+=`<text x="${W-padR}" y="${gy-4}" fill="var(--ink-dim)" font-size="12" text-anchor="end">${P.goalBf}% KFA ≈ ${goalW.toFixed(1)} kg</text>`;
+  // corridor band (zwischen optimistisch 10% und pessimistisch 20%)
+  if(bandOpt.length && bandPes.length){
+    const top=bandOpt.map(p=>`${sx(+new Date(p.date)).toFixed(1)},${sy(p.y).toFixed(1)}`);
+    const bot=bandPes.slice().reverse().map(p=>`${sx(+new Date(p.date)).toFixed(1)},${sy(p.y).toFixed(1)}`);
+    g+=`<polygon points="${top.concat(bot).join(' ')}" fill="var(--ink)" fill-opacity="0.06" stroke="none"/>`;
+  }
+  // x labels (start, mid, end)
+  [series[0],series[Math.floor(series.length/2)],series[series.length-1]].forEach(s=>{
+    g+=`<text x="${sx(+new Date(s.x))}" y="${H-8}" fill="var(--axis)" font-size="12" text-anchor="middle">${fmtD(s.x)}</text>`;
+  });
+  // proj line
+  if(proj.length){
+    const projSeries=[{x:reals[reals.length-1].date,y:reals[reals.length-1].sw||reals[reals.length-1].w}, ...proj.map(d=>({x:d.date,y:d.w}))];
+    g+=`<path d="${path(projSeries)}" fill="none" stroke="var(--proj)" stroke-width="1.5" stroke-dasharray="3 3"/>`;
+  }
+  // real line
+  g+=`<path d="${path(reals.map(d=>({x:d.date,y:d.sw||d.w})))}" fill="none" stroke="var(--real)" stroke-width="2" stroke-linejoin="round"/>`;
+  // real dots (raw) to show noise vs trend
+  reals.forEach(d=>{ g+=`<circle cx="${sx(+new Date(d.date)).toFixed(1)}" cy="${sy(d.w).toFixed(1)}" r="1.8" fill="var(--n400)"/>`; });
+  // last real point — Fokus-Marker mit Glow
+  const lr=reals[reals.length-1];
+  const lx=sx(+new Date(lr.date)).toFixed(1), ly=sy(lr.sw||lr.w).toFixed(1);
+  g+=`<circle cx="${lx}" cy="${ly}" r="6" fill="var(--accent)" fill-opacity="0.18"/>`;
+  g+=`<circle cx="${lx}" cy="${ly}" r="3.5" fill="var(--accent)"/>`;
+  svg.innerHTML=g;
+}
+
+function renderLbmChart(){
+  const svg=document.getElementById('lbmChart');
+  const lbmS=realLbmSeries();
+  const $=id=>document.getElementById(id);
+  if(lbmS.length<2){ svg.innerHTML='<text x="380" y="85" fill="var(--axis)" text-anchor="middle" font-size="11">KFA-Messwerte nötig</text>'; $('lbmGuardInfo').textContent='—'; $('lbmVerdict').textContent=''; return; }
+  const W=760,H=170,padL=42,padR=14,padT=14,padB=24;
+  const reals=DATA.filter(d=>d.type==='real');
+  const wAt=date=>{ const idx=DATA.findIndex(d=>d.date===date&&d.type==='real'); return smooth(idx); };
+  const startLbm=lbmS[0].lbm;
+  const startW=wAt(lbmS[0].date);
+
+  // Planungsband: für jeden Tag erwartete LBM bei einem festen Verlustanteil,
+  // verankert am REAL GEMESSENEN Gewichtsverlust (loss). Anteil ist Annahme, loss ist Messgröße.
+  const lineAtFrac=frac=>lbmS.map(p=>{ const loss=startW-wAt(p.date); return {date:p.date, lbm:startLbm-loss*frac}; });
+  const band10=lineAtFrac(0.10);   // obere Bandgrenze: nur 10% des Verlusts war LBM = gut
+  const band20=lineAtFrac(0.20);   // untere Bandgrenze: 20% war LBM = oberes Risiko-Ende
+  const sliderLine=lineAtFrac(P.lbmpct/100); // visuelle Referenz: aktuelle Planungsannahme
+
+  const allLbm=lbmS.map(p=>p.lbm).concat(band10.map(p=>p.lbm),band20.map(p=>p.lbm));
+  const dates=lbmS.map(p=>+new Date(p.date));
+  const minX=Math.min(...dates),maxX=Math.max(...dates);
+  const minY=Math.min(...allLbm)-0.3,maxY=Math.max(...allLbm)+0.3;
+  const sx=t=>padL+(t-minX)/((maxX-minX)||1)*(W-padL-padR);
+  const sy=v=>padT+(maxY-v)/((maxY-minY)||1)*(H-padT-padB);
+  const path=arr=>arr.map((p,i)=>(i?'L':'M')+sx(+new Date(p.date)).toFixed(1)+','+sy(p.lbm).toFixed(1)).join(' ');
+  let g='';
+  for(let i=0;i<=3;i++){ const v=minY+(maxY-minY)*i/3; const yy=sy(v); g+=`<line x1="${padL}" y1="${yy}" x2="${W-padR}" y2="${yy}" stroke="var(--grid)"/>`; g+=`<text x="${padL-6}" y="${yy+3}" fill="var(--axis)" font-size="12" text-anchor="end">${v.toFixed(1)}</text>`; }
+
+  // Planungsband als gefüllte Zone zwischen 10%- und 20%-Linie
+  const topPts=band10.map(p=>`${sx(+new Date(p.date)).toFixed(1)},${sy(p.lbm).toFixed(1)}`);
+  const botPts=band20.slice().reverse().map(p=>`${sx(+new Date(p.date)).toFixed(1)},${sy(p.lbm).toFixed(1)}`);
+  g+=`<polygon points="${topPts.concat(botPts).join(' ')}" fill="var(--ink)" fill-opacity="0.07" stroke="none"/>`;
+  g+=`<path d="${path(band10)}" fill="none" stroke="var(--n500)" stroke-width="1"/>`;
+  g+=`<path d="${path(band20)}" fill="none" stroke="var(--n500)" stroke-width="1"/>`;
+  // Bandgrenzen-Labels
+  g+=`<text x="${W-padR}" y="${sy(band10[band10.length-1].lbm)-3}" fill="var(--ink-dim)" font-size="11" text-anchor="end">10% · gut</text>`;
+  g+=`<text x="${W-padR}" y="${sy(band20[band20.length-1].lbm)+9}" fill="var(--ink-dim)" font-size="11" text-anchor="end">20% · Risiko</text>`;
+
+  // Einschwing-Schraffur erste 21 Tage
+  if(lbmS.length>1){
+    const warmEnd=Math.min(20,lbmS.length-1);
+    const x0=sx(+new Date(lbmS[0].date)), x1=sx(+new Date(lbmS[warmEnd].date));
+    g+=`<rect x="${x0}" y="${padT}" width="${(x1-x0).toFixed(1)}" height="${H-padT-padB}" fill="var(--accent)" fill-opacity="0.04"/>`;
+    g+=`<text x="${((x0+x1)/2).toFixed(1)}" y="${padT+11}" fill="var(--axis)" font-size="10" text-anchor="middle">EINSCHWINGEN</text>`;
+  }
+  // Slider-Referenzlinie (Planungsannahme) — dünn gepunktet, im Band verortet
+  g+=`<path d="${path(sliderLine)}" fill="none" stroke="var(--proj)" stroke-width="1" stroke-dasharray="2 3"/>`;
+  // reale LBM (durchgezogen)
+  g+=`<path d="${path(lbmS)}" fill="none" stroke="var(--good)" stroke-width="2"/>`;
+  // x labels
+  [lbmS[0],lbmS[lbmS.length-1]].forEach(p=>{ g+=`<text x="${sx(+new Date(p.date))}" y="${H-7}" fill="var(--axis)" font-size="12" text-anchor="${p===lbmS[0]?'start':'end'}">${fmtD(p.date)}</text>`; });
+  svg.innerHTML=g;
+
+  // ---- Verdikt: realer LBM-Verlustanteil per Regression LBM~Gewicht, gegen 10–20%-Band ----
+  // Steigung dLBM/dGewicht über alle Punkte; Anteil = Steigung (beide geglättet).
+  // loss>0 vorausgesetzt; bei zu kleinem Gewichtsverlust ist der Anteil instabil → kein Urteil.
+  const pts=lbmS.map(p=>({x:wAt(p.date), y:p.lbm})).filter(p=>p.x!=null);
+  const n=pts.length;
+  const mx=pts.reduce((s,p)=>s+p.x,0)/n, my=pts.reduce((s,p)=>s+p.y,0)/n;
+  let num=0, den=0;
+  for(const p of pts){ num+=(p.x-mx)*(p.y-my); den+=(p.x-mx)*(p.x-mx); }
+  const slope=den!==0?num/den:NaN;          // dLBM/dWeight
+  const realFrac=isFinite(slope)?slope:NaN;  // Anteil des Verlusts, der LBM war
+  const totalLoss=startW-wAt(lbmS[lbmS.length-1].date);
+  const realLbmDelta=lbmS[lbmS.length-1].lbm-startLbm;
+
+  $('lbmGuardInfo').textContent = (isFinite(realFrac) && totalLoss>0.5)
+    ? `LBM-Anteil real ≈ ${(realFrac*100).toFixed(0)}% · Δ LBM ${realLbmDelta>=0?'+':''}${realLbmDelta.toFixed(2)} kg`
+    : `Δ LBM ${realLbmDelta>=0?'+':''}${realLbmDelta.toFixed(2)} kg · Anteil noch instabil`;
+
+  const warmup=lbmS.length<21;
+  const v=$('lbmVerdict');
+  if(warmup){ v.textContent='⚠ Einschwingphase — noch nicht interpretieren'; v.style.color='var(--ink-faint)'; }
+  else if(totalLoss<=0.5 || !isFinite(realFrac)){ v.textContent='zu wenig Gewichtsverlust für stabiles Urteil'; v.style.color='var(--ink-faint)'; }
+  else if(realFrac>0.20){ v.textContent='⚠ LBM-Anteil über 20% — Defizit lockern, Protein priorisieren'; v.style.color='var(--ink)'; }
+  else if(realFrac>=0.10){ v.textContent='● LBM-Anteil im Planungsband (10–20%)'; v.style.color='var(--ink-dim)'; }
+  else { v.textContent='✓ LBM-Anteil unter 10% — besser als geplant'; v.style.color='var(--good)'; }
+}
+
+// ---------- Actions ----------
+function addEntry(){
+  const date=document.getElementById('iDate').value;
+  const w=parseFloat(document.getElementById('iWeight').value);
+  const bfRaw=document.getElementById('iBf').value;
+  const bf=bfRaw===''?null:parseFloat(bfRaw);
+  if(!date||isNaN(w)){ setStatus('Datum und Gewicht erforderlich.'); return; }
+  const ex=DATA.findIndex(d=>d.date===date && d.type==='real');
+  if(ex>=0) DATA[ex]={date,w,bf,type:'real'}; else DATA.push({date,w,bf,type:'real'});
+  document.getElementById('iWeight').value=''; document.getElementById('iBf').value='';
+  bumpDate();
+  save(); render(); setStatus('Eingetragen: '+fmtD(date));
+}
+function bumpDate(){
+  const el=document.getElementById('iDate');
+  const cur=el.value?new Date(el.value):new Date();
+  cur.setDate(cur.getDate()+1);
+  el.value=cur.toISOString().slice(0,10);
+}
+function setStatus(m){ document.getElementById('status').textContent=m; }
+
+function buildCSV(){
+  const rows=[['date','weight','bodyfat']];
+  DATA.forEach(d=>rows.push([d.date,d.w,d.bf??'']));
+  rows.push(['#params','agg='+P.agg,'lbmpct='+P.lbmpct,'tdee='+P.tdee+';alpert='+P.alpert+';height='+P.height+';goalBf='+P.goalBf+';buffer='+P.buffer]);
+  return rows.map(r=>r.join(',')).join('\n');
+}
+function exportCSV(){
+  const csv=buildCSV();
+  try {
+    const blob=new Blob([csv],{type:'text/csv'}); const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download='lbm-watcher_'+new Date().toISOString().slice(0,10)+'.csv';
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    setStatus('CSV exportiert ('+DATA.length+' Einträge).');
+  } catch(e){ setStatus('Export fehlgeschlagen.'); }
+}
+function importCSV(text){
+  const lines=text.trim().split(/\r?\n/); const out=[];
+  for(const ln of lines){
+    if(ln.startsWith('date')||ln.trim()==='') continue;
+    if(ln.startsWith('#params')){
+      const m=ln.match(/agg=(\d+).*?lbmpct=(\d+).*?tdee=(\d+);alpert=(\d+);height=(\d+);goalBf=([\d.]+);buffer=(\d+)/);
+      if(m){ P.agg=+m[1];P.lbmpct=+m[2];P.tdee=+m[3];P.alpert=+m[4];P.height=+m[5];P.goalBf=+m[6];P.buffer=+m[7]; }
+      continue;
+    }
+    const [date,w,bf]=ln.split(',');
+    if(date&&w) out.push({date,w:+w,bf:(bf===undefined||bf==='')?null:+bf,type:'real'});
+  }
+  if(out.length){ DATA=out; syncParamInputs(); save(); render(); setStatus('Importiert: '+DATA.length+' Einträge.'); }
+  else setStatus('Keine gültigen Zeilen.');
+}
+function syncParamInputs(){
+  document.getElementById('agg').value=P.agg; document.getElementById('aggVal').textContent=P.agg+'%';
+  document.getElementById('lbmpct').value=P.lbmpct; document.getElementById('lbmVal').textContent=P.lbmpct+'%';
+  document.getElementById('iTdee').value=P.tdee??''; document.getElementById('iAlpert').value=P.alpert;
+  document.getElementById('iHeight').value=P.height??''; document.getElementById('iGoalBf').value=P.goalBf;
+  document.getElementById('iBuffer').value=P.buffer;
+}
+
+// ---------- Wire up ----------
+function bind(){
+  document.getElementById('addBtn').onclick=addEntry;
+  document.getElementById('iWeight').addEventListener('keydown',e=>{if(e.key==='Enter')addEntry();});
+  document.getElementById('iBf').addEventListener('keydown',e=>{if(e.key==='Enter')addEntry();});
+  document.getElementById('exportBtn').onclick=exportCSV;
+  document.getElementById('importBtn').onclick=()=>{ document.getElementById('fileInput').click(); };
+  document.getElementById('fileInput').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const rd=new FileReader(); rd.onload=()=>importCSV(rd.result); rd.readAsText(f); };
+  document.getElementById('clearBtn').onclick=()=>{
+    if(!DATA.length || confirm('Alle lokal gespeicherten Daten unwiderruflich löschen? Vorher exportieren, falls noch nicht gesichert.')){
+      DATA=[]; clearStorage(); render(); setStatus('Storage gelöscht — leer.');
+    }
+  };
+  const bindP=(id,key,suffix,fn)=>{ const el=document.getElementById(id); el.oninput=()=>{ P[key]=+el.value; if(suffix)document.getElementById(suffix).textContent=el.value+'%'; save(); render(); }; };
+  bindP('agg','agg','aggVal'); bindP('lbmpct','lbmpct','lbmVal');
+  ['iTdee:tdee','iAlpert:alpert','iHeight:height','iGoalBf:goalBf','iBuffer:buffer'].forEach(p=>{
+    const [id,key]=p.split(':'); document.getElementById(id).oninput=()=>{ const v=document.getElementById(id).value; P[key]=v===''?null:+v; save(); render(); };
+  });
+}
+
+(function init(){
+  bind();
+  const had=load();
+  document.getElementById('iDate').value=new Date().toISOString().slice(0,10);
+  syncParamInputs();
+  render();
+  setStatus(had?'Stand geladen.':'Leer — CSV importieren oder Daten manuell eintragen.');
+})();
+</script>
+</body>
+</html>
