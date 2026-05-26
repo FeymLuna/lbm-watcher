@@ -364,6 +364,17 @@
       rgba(234, 242, 77,  0.30) 60% 80%,
       rgba(242, 115, 77,  0.30) 80% 100%);
   }
+  /* Goal BF slider — 1-30 range, zones mirror bfStatus() thresholds.
+     Stop positions calculated as (value-1)/29 × 100%:
+       3 → 6.9% · 7 → 20.7% · 16 → 51.7% · 27 → 89.7% */
+  input[type=range]#iGoalBf {
+    background: linear-gradient(to right,
+      rgba(242, 115, 77,  0.30) 0%     6.9%,    /* ≤3 = essential-fat danger */
+      rgba(234, 242, 77,  0.30) 6.9%   20.7%,   /* 3-7 = aggressive cut warn */
+      rgba(108, 224, 168, 0.30) 20.7%  51.7%,   /* 7-15 = athletic good */
+      rgba(234, 242, 77,  0.30) 51.7%  89.7%,   /* 16-26 = above-athletic warn */
+      rgba(242, 115, 77,  0.30) 89.7%  100%);   /* ≥27 = unhealthy danger */
+  }
   input[type=range]::-webkit-slider-thumb {
     transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur) var(--ease);
   }
@@ -445,6 +456,57 @@
   .empty-state-inline svg { width: 48px; height: 28px; opacity: 0.5; }
   .empty-state-inline .e-sub { font-size: 10px; text-transform: none; letter-spacing: 0.04em; opacity: 0.7; }
 
+  /* ===== Fullscreen chart interactivity (hover crosshair + tooltip + entrance draw) ===== */
+  .modal-body { position: relative; }
+
+  /* Glass-style tooltip overlaid on the SVG. Stays in lockstep with the crosshair via JS. */
+  .chart-tooltip {
+    position: absolute;
+    z-index: 5;
+    pointer-events: none;
+    background: rgba(20, 22, 28, 0.92);
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 1px rgba(0,0,0,0.6);
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+    transition: opacity var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+    white-space: nowrap;
+    min-width: 140px;
+  }
+  .chart-tooltip.show { opacity: 1; transform: translateY(0) scale(1); }
+  .chart-tooltip .tt-date { font-size: 9.5px; color: var(--ink-faint); letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 8px; font-weight: 600; }
+  .chart-tooltip .tt-date .tt-proj { color: var(--proj); margin-left: 6px; font-style: normal; opacity: 0.85; }
+  .chart-tooltip .tt-row { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; padding: 2px 0; }
+  .chart-tooltip .tt-key { color: var(--ink-faint); font-size: 10px; letter-spacing: 0.06em; }
+  .chart-tooltip .tt-val { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+  /* Crosshair styling — SVG <g class="hover-overlay"> injected by render */
+  .hover-overlay .hover-vline { transition: opacity var(--dur-fast) var(--ease); }
+  .hover-overlay .hover-dot   {
+    filter: drop-shadow(0 0 6px var(--accent));
+    transition: opacity var(--dur-fast) var(--ease);
+  }
+  /* SVG must receive pointer events over its full bounding box, not just painted lines */
+  #chartFull, #lbmChartFull { pointer-events: all; cursor: crosshair; }
+
+  /* Entrance — line draw-in via clip-path. Triggered by .entering on modal-sheet. */
+  @keyframes chartDrawIn { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+  .modal-sheet.entering svg .real-line      { animation: chartDrawIn 1100ms var(--ease) both; }
+  .modal-sheet.entering svg .proj-line      { animation: chartDrawIn 1000ms var(--ease) 600ms both; }
+  .modal-sheet.entering svg .threshold-line { animation: chartDrawIn  800ms var(--ease) 200ms both; }
+  .modal-sheet.entering svg .raw-dot,
+  .modal-sheet.entering svg .proj-end-dot,
+  .modal-sheet.entering svg .focus-marker,
+  .modal-sheet.entering svg .today-marker   { animation: fadeIn 600ms var(--ease) 900ms both; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
   /* Reduced motion — disable all decorative motion entirely */
   @media (prefers-reduced-motion: reduce) {
     .wrap > *, .toast, .stripe .v.changed,
@@ -461,7 +523,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass - Watcher <span class="ver">v1.6.0</span></h1>
+    <h1>Lean Body Mass - Watcher <span class="ver">v1.7.0</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -535,11 +597,15 @@
         <input type="range" id="agg" min="0" max="100" value="75" step="1">
         <div class="hint">Share of the Alpert limit. <span style="color:var(--good)">&lt;60%</span> protects LBM · <span style="color:var(--warn)">60–79%</span> standard cut · <span style="color:var(--danger)">≥80%</span> risk zone.</div>
       </div>
+      <div class="slider-wrap" style="margin-top:14px;">
+        <div class="topline"><span>Goal body fat %</span><b id="goalBfVal">12.0%</b></div>
+        <input type="range" id="iGoalBf" min="1" max="30" value="12" step="0.1">
+        <div class="hint"><span style="color:var(--danger)">≤3 / ≥27</span> dangerous · <span style="color:var(--warn)">3–7 / 16–26</span> acceptable · <span style="color:var(--good)">7–15</span> athletic.</div>
+      </div>
       <div class="row2" style="margin-top:14px;">
         <div class="field"><label>TDEE kcal</label><input type="number" id="iTdee" placeholder="e.g. 2400"></div>
         <div class="field"><label>Height cm</label><input type="number" id="iHeight" placeholder="e.g. 175"></div>
       </div>
-      <div class="field"><label>Goal BF %</label><input type="number" step="0.1" id="iGoalBf" value="12"></div>
       <div class="hint">Min. intake = TDEE − Alpert limit (69 kcal × kg fat). LBM loss share is learned automatically once ≥21 real BF measurements are collected; until then a conservative 15% is assumed for projections.</div>
     </div>
   </div>
@@ -1114,7 +1180,7 @@ function render(){
   if(reals.length){
     document.getElementById('countInfo').textContent = reals.length+' real · '+reals[0].date+' → '+reals[reals.length-1].date;
   }
-  $('goalBfInfo').textContent = P.goalBf;
+  $('goalBfInfo').textContent = (+P.goalBf).toFixed(1);
 
   // ETA: Enddatum, verbleibende Tage, errechnetes Zielgewicht aus Projektion
   const proj = buildProjection();
@@ -1264,6 +1330,7 @@ function openLbmTrend(){
   document.body.style.overflow = 'hidden';
   tryLandscape();
   renderLbmChart({ compact: false });
+  playModalEnter(m);
   setTimeout(() => { const c = document.getElementById('lbmTrendClose'); if(c) c.focus(); }, 0);
   document.addEventListener('keydown', lbmTrendKeyHandler);
 }
@@ -1297,6 +1364,110 @@ function lbmTrendKeyHandler(e){
   if(e.key === 'Escape'){ e.preventDefault(); closeLbmTrend(); }
 }
 
+// ----- Fullscreen chart hover system ------------------------------------------
+// Generic crosshair + tooltip for a chart SVG. Reads per-chart state set by the
+// last render({compact:false}) call. RAF-throttled so it stays smooth at 60fps.
+function attachChartHover(svgId, getState, buildHtml, hoverGroupId, getY){
+  const svg = document.getElementById(svgId);
+  if(!svg) return;
+  const host = svg.parentNode;
+  if(!host) return;
+  let tooltip = host.querySelector('.chart-tooltip');
+  if(!tooltip){
+    tooltip = document.createElement('div');
+    tooltip.className = 'chart-tooltip';
+    host.appendChild(tooltip);
+  }
+  let rafId = null;
+  function update(clientX, clientY){
+    if(rafId) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(() => {
+      const state = getState();
+      if(!state || !state.points || state.points.length === 0) return;
+      const rect = svg.getBoundingClientRect();
+      if(rect.width === 0) return;
+      const scaleX = svg.viewBox.baseVal.width  / rect.width;
+      const scaleY = svg.viewBox.baseVal.height / rect.height;
+      const svgX   = (clientX - rect.left) * scaleX;
+      // nearest by X
+      let best = null, bestDist = Infinity;
+      for(const p of state.points){
+        const dx = Math.abs(state.sx(+new Date(p.date)) - svgX);
+        if(dx < bestDist){ bestDist = dx; best = p; }
+      }
+      if(!best) return;
+      const px = state.sx(+new Date(best.date));
+      const py = state.sy(getY(best));
+      // crosshair
+      const hoverG = svg.querySelector('#' + hoverGroupId);
+      if(hoverG){
+        const vline = hoverG.querySelector('.hover-vline');
+        const dot   = hoverG.querySelector('.hover-dot');
+        if(vline){ vline.setAttribute('x1', px); vline.setAttribute('x2', px); }
+        if(dot)  { dot.setAttribute('cx', px);   dot.setAttribute('cy', py); }
+        hoverG.style.display = '';
+      }
+      // tooltip
+      tooltip.innerHTML = buildHtml(best, state);
+      const screenX = px / scaleX;
+      const screenY = py / scaleY;
+      const tw = tooltip.offsetWidth  || 180;
+      const th = tooltip.offsetHeight || 80;
+      let left = screenX + 18;
+      if(left + tw > rect.width - 8) left = screenX - tw - 18;
+      if(left < 8) left = 8;
+      let top = screenY - th - 12;
+      if(top < 8) top = screenY + 18;
+      tooltip.style.left = left + 'px';
+      tooltip.style.top  = top + 'px';
+      tooltip.classList.add('show');
+    });
+  }
+  function hide(){
+    const hoverG = svg.querySelector('#' + hoverGroupId);
+    if(hoverG) hoverG.style.display = 'none';
+    tooltip.classList.remove('show');
+  }
+  svg.addEventListener('mousemove',  e => update(e.clientX, e.clientY));
+  svg.addEventListener('mouseleave', hide);
+  svg.addEventListener('touchstart', e => { if(e.touches.length) update(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+  svg.addEventListener('touchmove',  e => { if(e.touches.length) update(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+  svg.addEventListener('touchend',   hide);
+}
+
+// Tooltip content builders — one per chart.
+function buildWeightTooltip(p, state){
+  const isReal = p.isReal;
+  const rawDiff = isReal && p.raw != null && Math.abs(p.raw - p.w) >= 0.05;
+  const bmi = state.heightM ? (p.w / (state.heightM * state.heightM)).toFixed(1) : null;
+  let h = `<div class="tt-date">${fmtD(p.date)}${isReal ? '' : ' <span class="tt-proj">· projected</span>'}</div>`;
+  h += `<div class="tt-row"><span class="tt-key">${isReal?'Smoothed':'Weight'}</span><span class="tt-val">${p.w.toFixed(2)} kg</span></div>`;
+  if(rawDiff) h += `<div class="tt-row"><span class="tt-key">Raw</span><span class="tt-val">${p.raw.toFixed(2)} kg</span></div>`;
+  if(bmi)     h += `<div class="tt-row"><span class="tt-key">BMI</span><span class="tt-val">${bmi}</span></div>`;
+  return h;
+}
+function buildLbmTooltip(p, state){
+  const isReal = p.isReal;
+  const rawDiff = isReal && p.raw != null && Math.abs(p.raw - p.lbm) >= 0.05;
+  const ffmi = state.heightM ? (p.lbm / (state.heightM * state.heightM)).toFixed(1) : null;
+  let h = `<div class="tt-date">${fmtD(p.date)}${isReal ? '' : ' <span class="tt-proj">· projected</span>'}</div>`;
+  h += `<div class="tt-row"><span class="tt-key">${isReal?'Smoothed':'LBM'}</span><span class="tt-val">${p.lbm.toFixed(2)} kg</span></div>`;
+  if(rawDiff) h += `<div class="tt-row"><span class="tt-key">Raw</span><span class="tt-val">${p.raw.toFixed(2)} kg</span></div>`;
+  if(ffmi)    h += `<div class="tt-row"><span class="tt-key">FFMI</span><span class="tt-val">${ffmi}</span></div>`;
+  return h;
+}
+
+// Triggers the .entering animation on a modal-sheet. Class re-applies on every open
+// so the line-draw + threshold-sweep replay each time.
+function playModalEnter(modal){
+  const sheet = modal && modal.querySelector('.modal-sheet');
+  if(!sheet) return;
+  sheet.classList.remove('entering');
+  void sheet.offsetWidth;       // force reflow so the animation restarts
+  sheet.classList.add('entering');
+  setTimeout(() => sheet.classList.remove('entering'), 2200);
+}
+
 // ----- Weight-Trend-Modal -----
 // Vollbild-Chart mit BMI-Schwellen, Today-Marker, Live-Stats-Header.
 // Selbe Fullscreen-/Orientation-Lock-Mechanik wie das LBM-Trend-Modal.
@@ -1307,6 +1478,7 @@ function openWeightTrend(){
   document.body.style.overflow = 'hidden';
   tryLandscape();
   renderChart({ compact: false });
+  playModalEnter(m);
   setTimeout(() => { const c = document.getElementById('weightTrendClose'); if(c) c.focus(); }, 0);
   document.addEventListener('keydown', weightTrendKeyHandler);
 }
@@ -1329,11 +1501,16 @@ function weightTrendKeyHandler(e){
 
 function fmtD(iso){ const [y,m,d]=iso.split('-'); return d+'.'+m+'.'+y.slice(2); }
 
+// Per-chart state for the fullscreen hover system. Re-populated on every fullscreen render
+// so the hover handler can look up the nearest point and project pixel coords accurately.
+let _weightChart = null;
+let _lbmChart    = null;
+
 // renderChart — zwei Render-Modi für den Weight-Trend-Chart:
 //   opts.compact = true  (default)  → Dashboard-Tile (760×300), schlank
 //   opts.compact = false             → Vollbild-Modul (1280×640), mit BMI-Schwellen (18.5/25/30),
 //                                       Today-Marker, mehr X-Labels, Projektions-End-Annotation,
-//                                       Live-Stats im Modal-Header
+//                                       Live-Stats im Modal-Header, Hover-Crosshair, Tooltip
 function renderChart(opts){
   opts = opts || {};
   const compact = opts.compact !== false;
@@ -1395,7 +1572,8 @@ function renderChart(opts){
 
   const fs = compact ? { y:12, label:11, x:12, ann:11 } : { y:16, label:14, x:14, ann:14 };
 
-  let g='';
+  // Transparent hit-rect first so mousemove fires over empty chart areas, not just painted lines.
+  let g = !compact ? `<rect x="0" y="0" width="${W}" height="${H}" fill="transparent" pointer-events="all"/>` : '';
   // Y-Grid + Labels
   const ySteps = compact ? 5 : 6;
   for(let i=0; i<=ySteps; i++){
@@ -1413,10 +1591,12 @@ function renderChart(opts){
     g+=`<polygon points="${top.concat(bot).join(' ')}" fill="var(--ink)" fill-opacity="0.06" stroke="none"/>`;
   }
 
-  // Goal-Linie — errechnetes Zielgewicht bei Ziel-BF%
+  // Goal-Linie — errechnetes Zielgewicht bei Ziel-BF%. Klasse für Entrance-Sweep.
   const gy = sy(goalW);
-  g+=`<line x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}" stroke="var(--n400)" stroke-dasharray="4 4"/>`;
-  g+=`<text x="${W-padR}" y="${gy-4}" fill="var(--ink-dim)" font-size="${fs.label}" text-anchor="end">${P.goalBf}% BF ≈ ${goalW.toFixed(1)} kg</text>`;
+  g+=`<line class="threshold-line" x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}" stroke="var(--n400)" stroke-dasharray="4 4"/>`;
+  // Label in der Chart-Mitte — die Projektion endet immer auf der Goal-Linie am rechten Rand,
+  // also würden Goal-Label und Projektions-End-Annotation kollidieren. Mitte ist neutral.
+  g+=`<text x="${((padL + W - padR) / 2).toFixed(1)}" y="${gy-4}" fill="var(--ink-dim)" font-size="${fs.label}" text-anchor="middle">${(+P.goalBf).toFixed(1)}% BF ≈ ${goalW.toFixed(1)} kg</text>`;
 
   // BMI-Schwellen (Vollbild)
   if(!compact && heightM){
@@ -1424,7 +1604,7 @@ function renderChart(opts){
       const weightAt = t.bmi * heightM * heightM;
       if(weightAt >= minY && weightAt <= maxY){
         const y = sy(weightAt);
-        g+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="${t.color}" stroke-width="1" stroke-dasharray="6 4"/>`;
+        g+=`<line class="threshold-line" x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="${t.color}" stroke-width="1" stroke-dasharray="6 4"/>`;
         g+=`<text x="${padL+8}" y="${y-4}" fill="${t.color}" font-size="${fs.label}" text-anchor="start">${t.label} ≈ ${weightAt.toFixed(1)} kg</text>`;
       }
     });
@@ -1433,37 +1613,45 @@ function renderChart(opts){
   // Today-Marker — Vollbild
   if(!compact && reals.length){
     const todayX = sx(+new Date(reals[reals.length-1].date));
-    g+=`<line x1="${todayX.toFixed(1)}" y1="${padT}" x2="${todayX.toFixed(1)}" y2="${H-padB}" stroke="var(--ink-faint)" stroke-width="1" stroke-dasharray="2 4"/>`;
-    g+=`<text x="${todayX.toFixed(1)}" y="${padT-10}" fill="var(--ink-faint)" font-size="${fs.label}" text-anchor="middle" letter-spacing="2">TODAY</text>`;
+    g+=`<line class="today-marker" x1="${todayX.toFixed(1)}" y1="${padT}" x2="${todayX.toFixed(1)}" y2="${H-padB}" stroke="var(--ink-faint)" stroke-width="1" stroke-dasharray="2 4"/>`;
+    g+=`<text class="today-marker" x="${todayX.toFixed(1)}" y="${padT-10}" fill="var(--ink-faint)" font-size="${fs.label}" text-anchor="middle" letter-spacing="2">TODAY</text>`;
   }
 
   // Projektions-Linie (gestrichelt grau)
   if(proj.length){
     const projSeries = [{x:reals[reals.length-1].date, y:reals[reals.length-1].sw||reals[reals.length-1].w}, ...proj.map(d=>({x:d.date,y:d.w}))];
-    g+=`<path d="${path(projSeries)}" fill="none" stroke="var(--proj)" stroke-width="${compact?1.5:2}" stroke-dasharray="${compact?'3 3':'5 5'}"/>`;
+    g+=`<path class="proj-line" d="${path(projSeries)}" fill="none" stroke="var(--proj)" stroke-width="${compact?1.5:2}" stroke-dasharray="${compact?'3 3':'5 5'}"/>`;
   }
 
   // Reale Linie (durchgezogen, geglättet)
-  g+=`<path d="${path(reals.map(d=>({x:d.date,y:d.sw||d.w})))}" fill="none" stroke="var(--real)" stroke-width="${compact?2:2.5}" stroke-linejoin="round"/>`;
+  g+=`<path class="real-line" d="${path(reals.map(d=>({x:d.date,y:d.sw||d.w})))}" fill="none" stroke="var(--real)" stroke-width="${compact?2:2.5}" stroke-linejoin="round"/>`;
 
   // Raw-Dots (jede einzelne Messung — zeigt das Rauschen vs Trend)
   reals.forEach(d => {
-    g+=`<circle cx="${sx(+new Date(d.date)).toFixed(1)}" cy="${sy(d.w).toFixed(1)}" r="${compact?1.8:2.4}" fill="var(--n400)"${compact?'':' opacity="0.7"'}/>`;
+    g+=`<circle class="raw-dot" cx="${sx(+new Date(d.date)).toFixed(1)}" cy="${sy(d.w).toFixed(1)}" r="${compact?1.8:2.4}" fill="var(--n400)"${compact?'':' opacity="0.7"'}/>`;
   });
 
   // Letzter realer Punkt — Fokus-Marker mit Glow
   const lr = reals[reals.length-1];
   const lx = sx(+new Date(lr.date)).toFixed(1), ly = sy(lr.sw||lr.w).toFixed(1);
-  g+=`<circle cx="${lx}" cy="${ly}" r="${compact?6:8}" fill="var(--accent)" fill-opacity="0.18"/>`;
-  g+=`<circle cx="${lx}" cy="${ly}" r="${compact?3.5:4.5}" fill="var(--accent)"/>`;
+  g+=`<circle class="focus-marker" cx="${lx}" cy="${ly}" r="${compact?6:8}" fill="var(--accent)" fill-opacity="0.18"/>`;
+  g+=`<circle class="focus-marker" cx="${lx}" cy="${ly}" r="${compact?3.5:4.5}" fill="var(--accent)"/>`;
 
   // Projektions-End-Marker (Vollbild)
   if(!compact && proj.length){
     const end = proj[proj.length-1];
     const ex = sx(+new Date(end.date)).toFixed(1);
     const ey = sy(end.w).toFixed(1);
-    g+=`<circle cx="${ex}" cy="${ey}" r="4" fill="var(--proj)"/>`;
-    g+=`<text x="${(parseFloat(ex)-8).toFixed(1)}" y="${(parseFloat(ey)-8).toFixed(1)}" fill="var(--ink-dim)" font-size="${fs.ann}" text-anchor="end">${end.w.toFixed(1)} kg @ ${fmtD(end.date)}</text>`;
+    g+=`<circle class="proj-end-dot" cx="${ex}" cy="${ey}" r="4" fill="var(--proj)"/>`;
+    g+=`<text class="proj-end-dot" x="${(parseFloat(ex)-8).toFixed(1)}" y="${(parseFloat(ey)-8).toFixed(1)}" fill="var(--ink-dim)" font-size="${fs.ann}" text-anchor="end">${end.w.toFixed(1)} kg @ ${fmtD(end.date)}</text>`;
+  }
+
+  // Hover-Overlay (Crosshair + Dot) — initial unsichtbar, wird von attachWeightHover gefüllt.
+  if(!compact){
+    g+=`<g class="hover-overlay" id="weightHoverGroup" style="display:none">
+      <line class="hover-vline" stroke="var(--accent)" stroke-width="1" stroke-dasharray="3 3" opacity="0.7" y1="${padT}" y2="${H-padB}"/>
+      <circle class="hover-dot" r="6" fill="var(--accent)" stroke="var(--bg)" stroke-width="2.5"/>
+    </g>`;
   }
 
   // X-Achsen-Labels
@@ -1485,6 +1673,20 @@ function renderChart(opts){
   });
 
   svg.innerHTML = g;
+
+  // Hover-State für Vollbild — wird vom Crosshair-Handler genutzt
+  if(!compact){
+    _weightChart = {
+      svg, padT, padB, H, W,
+      heightM,
+      // Vereinheitlichte Liste aller Datenpunkte (real + projiziert) für die nearest-X-Suche
+      points: [
+        ...reals.map(d => ({ date: d.date, w: (d.sw || d.w), raw: d.w, isReal: true })),
+        ...proj.map(d  => ({ date: d.date, w: d.w, isReal: false })),
+      ],
+      sx, sy,
+    };
+  }
 
   // Vollbild-Modal-Header: Live-Stats — current weight · delta · trend · days to goal
   if(!compact){
@@ -1617,7 +1819,8 @@ function renderLbmChart(opts){
     ? { y: 12, label: 11, settle: 10, x: 12, ann: 11 }
     : { y: 16, label: 14, settle: 13, x: 14, ann: 14 };
 
-  let g='';
+  // Transparent hit-rect first so mousemove fires over empty chart areas, not just painted lines.
+  let g = !compact ? `<rect x="0" y="0" width="${W}" height="${H}" fill="transparent" pointer-events="all"/>` : '';
   // Y-Grid + Labels
   const ySteps = compact ? 3 : 5;
   for(let i=0; i<=ySteps; i++){
@@ -1633,25 +1836,25 @@ function renderLbmChart(opts){
     g+=`<polygon points="${topPts.concat(botPts).join(' ')}" fill="var(--ink)" fill-opacity="0.07" stroke="none"/>`;
     g+=`<path d="${path(band10)}" fill="none" stroke="var(--n500)" stroke-width="1"/>`;
     g+=`<path d="${path(band20)}" fill="none" stroke="var(--n500)" stroke-width="1"/>`;
-    g+=`<text x="${W-padR}" y="${sy(band10[band10.length-1].lbm)-3}" fill="var(--ink-dim)" font-size="${fs.label}" text-anchor="end">10% · good</text>`;
-    g+=`<text x="${W-padR}" y="${sy(band20[band20.length-1].lbm)+fs.label+1}" fill="var(--ink-dim)" font-size="${fs.label}" text-anchor="end">20% · risk</text>`;
+    // Labels in der Bandmitte — vermeidet Überlappung mit den FFMI-Schwellen-Labels links und dem Projektions-End-Marker rechts.
+    const midIdx10 = Math.floor(band10.length / 2);
+    const midIdx20 = Math.floor(band20.length / 2);
+    const mid10 = band10[midIdx10];
+    const mid20 = band20[midIdx20];
+    g+=`<text x="${sx(+new Date(mid10.date)).toFixed(1)}" y="${(sy(mid10.lbm)-3).toFixed(1)}" fill="var(--ink-dim)" font-size="${fs.label}" text-anchor="middle">10% · good</text>`;
+    g+=`<text x="${sx(+new Date(mid20.date)).toFixed(1)}" y="${(sy(mid20.lbm)+fs.label+1).toFixed(1)}" fill="var(--ink-dim)" font-size="${fs.label}" text-anchor="middle">20% · risk</text>`;
   }
 
-  // FFMI-Schwellen
+  // FFMI-Schwellen (Vollbild only — Dashboard-Tile bleibt schlank)
   if(!compact){
     ffmiLines.forEach(t => {
       const lbmVal = t.ffmi * heightM * heightM;
       if(lbmVal >= minY && lbmVal <= maxY){
         const y = sy(lbmVal);
-        g+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="${t.color}" stroke-width="1" stroke-dasharray="6 4"/>`;
+        g+=`<line class="threshold-line" x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="${t.color}" stroke-width="1" stroke-dasharray="6 4"/>`;
         g+=`<text x="${padL+8}" y="${y-4}" fill="${t.color}" font-size="${fs.label}" text-anchor="start">${t.label} ≈ ${lbmVal.toFixed(1)} kg</text>`;
       }
     });
-  } else if(haveCap && maxLbm >= minY && maxLbm <= maxY){
-    // Compact: nur die Cap-Linie
-    const capY = sy(maxLbm);
-    g+=`<line x1="${padL}" y1="${capY}" x2="${W-padR}" y2="${capY}" stroke="var(--danger)" stroke-width="1" stroke-dasharray="4 3"/>`;
-    g+=`<text x="${W-padR}" y="${capY-3}" fill="var(--danger)" font-size="${fs.label}" text-anchor="end">FFMI 25 cap ≈ ${maxLbm.toFixed(1)} kg</text>`;
   }
 
   // Settling-Bereich (vormals "WARM-UP") — nur im Vollbild.
@@ -1665,23 +1868,23 @@ function renderLbmChart(opts){
   // Today-Marker — Vollbild
   if(!compact){
     const todayX = sx(+new Date(lbmS[lbmS.length-1].date));
-    g+=`<line x1="${todayX.toFixed(1)}" y1="${padT}" x2="${todayX.toFixed(1)}" y2="${H-padB}" stroke="var(--ink-faint)" stroke-width="1" stroke-dasharray="2 4"/>`;
-    g+=`<text x="${todayX.toFixed(1)}" y="${padT-10}" fill="var(--ink-faint)" font-size="${fs.label}" text-anchor="middle" letter-spacing="2">TODAY</text>`;
+    g+=`<line class="today-marker" x1="${todayX.toFixed(1)}" y1="${padT}" x2="${todayX.toFixed(1)}" y2="${H-padB}" stroke="var(--ink-faint)" stroke-width="1" stroke-dasharray="2 4"/>`;
+    g+=`<text class="today-marker" x="${todayX.toFixed(1)}" y="${padT-10}" fill="var(--ink-faint)" font-size="${fs.label}" text-anchor="middle" letter-spacing="2">TODAY</text>`;
   }
 
   // Projektion (gestrichelt grau) — angeschlossen ans letzte reale LBM.
   if(projLbm.length){
     const projLine = [{ date: lbmS[lbmS.length-1].date, lbm: lbmS[lbmS.length-1].lbm }, ...projLbm];
-    g+=`<path d="${path(projLine)}" fill="none" stroke="var(--proj)" stroke-width="${compact?1.5:2}" stroke-dasharray="${compact?'3 3':'5 5'}"/>`;
+    g+=`<path class="proj-line" d="${path(projLine)}" fill="none" stroke="var(--proj)" stroke-width="${compact?1.5:2}" stroke-dasharray="${compact?'3 3':'5 5'}"/>`;
   }
   // Reale LBM (durchgezogen, grün)
-  g+=`<path d="${path(lbmS)}" fill="none" stroke="var(--good)" stroke-width="${compact?2:2.5}" stroke-linejoin="round"/>`;
+  g+=`<path class="real-line" d="${path(lbmS)}" fill="none" stroke="var(--good)" stroke-width="${compact?2:2.5}" stroke-linejoin="round"/>`;
 
   // Raw-LBM-Punkte (vor Glättung) — Vollbild only, würde Dashboard-Tile zumüllen.
   if(!compact){
     lbmS.forEach(p => {
       if(p.raw == null) return;
-      g+=`<circle cx="${sx(+new Date(p.date)).toFixed(1)}" cy="${sy(p.raw).toFixed(1)}" r="2.4" fill="var(--n400)" opacity="0.7"/>`;
+      g+=`<circle class="raw-dot" cx="${sx(+new Date(p.date)).toFixed(1)}" cy="${sy(p.raw).toFixed(1)}" r="2.4" fill="var(--n400)" opacity="0.7"/>`;
     });
   }
 
@@ -1690,8 +1893,16 @@ function renderLbmChart(opts){
     const last = projLbm[projLbm.length-1];
     const ex = sx(+new Date(last.date)).toFixed(1);
     const ey = sy(last.lbm).toFixed(1);
-    g+=`<circle cx="${ex}" cy="${ey}" r="4" fill="var(--proj)"/>`;
-    g+=`<text x="${(parseFloat(ex)-8).toFixed(1)}" y="${(parseFloat(ey)-8).toFixed(1)}" fill="var(--ink-dim)" font-size="${fs.ann}" text-anchor="end">${last.lbm.toFixed(1)} kg @ ${fmtD(last.date)}</text>`;
+    g+=`<circle class="proj-end-dot" cx="${ex}" cy="${ey}" r="4" fill="var(--proj)"/>`;
+    g+=`<text class="proj-end-dot" x="${(parseFloat(ex)-8).toFixed(1)}" y="${(parseFloat(ey)-8).toFixed(1)}" fill="var(--ink-dim)" font-size="${fs.ann}" text-anchor="end">${last.lbm.toFixed(1)} kg @ ${fmtD(last.date)}</text>`;
+  }
+
+  // Hover-Overlay (Crosshair + Dot) — initial unsichtbar.
+  if(!compact){
+    g+=`<g class="hover-overlay" id="lbmHoverGroup" style="display:none">
+      <line class="hover-vline" stroke="var(--accent)" stroke-width="1" stroke-dasharray="3 3" opacity="0.7" y1="${padT}" y2="${H-padB}"/>
+      <circle class="hover-dot" r="6" fill="var(--accent)" stroke="var(--bg)" stroke-width="2.5"/>
+    </g>`;
   }
 
   // X-Achsen-Labels
@@ -1712,6 +1923,19 @@ function renderLbmChart(opts){
   });
 
   svg.innerHTML=g;
+
+  // Hover-State für Vollbild — wird vom Crosshair-Handler genutzt
+  if(!compact){
+    _lbmChart = {
+      svg, padT, padB, H, W,
+      heightM,
+      points: [
+        ...lbmS.map(p => ({ date: p.date, lbm: p.lbm, raw: p.raw, isReal: true })),
+        ...projLbm.map(p => ({ date: p.date, lbm: p.lbm, isReal: false })),
+      ],
+      sx, sy,
+    };
+  }
 
   // Header-Info / Verdict
   const realFrac     = stats.realFrac;
@@ -1858,10 +2082,12 @@ function importCSV(text){
   else setStatus('No valid rows.');
 }
 function syncParamInputs(){
-  document.getElementById('agg').value = P.agg; document.getElementById('aggVal').textContent = P.agg+'%';
-  document.getElementById('iTdee').value   = P.tdee   ?? '';
-  document.getElementById('iHeight').value = P.height ?? '';
-  document.getElementById('iGoalBf').value = P.goalBf;
+  document.getElementById('agg').value      = P.agg;
+  document.getElementById('aggVal').textContent = P.agg+'%';
+  document.getElementById('iGoalBf').value  = P.goalBf;
+  document.getElementById('goalBfVal').textContent = (+P.goalBf).toFixed(1)+'%';
+  document.getElementById('iTdee').value    = P.tdee   ?? '';
+  document.getElementById('iHeight').value  = P.height ?? '';
 }
 
 // ---------- Wire up ----------
@@ -1877,9 +2103,21 @@ function bind(){
       DATA=[]; clearStorage(); render(); setStatus('Storage cleared — empty.');
     }
   };
-  const bindP=(id,key,suffix)=>{ const el=document.getElementById(id); el.oninput=()=>{ P[key]=+el.value; if(suffix)document.getElementById(suffix).textContent=el.value+'%'; save(); render(); }; };
+  // bindP — binds a range slider to a P key + live-updates a display element.
+  // `decimals` controls toFixed for the display value; omit for integer sliders.
+  const bindP=(id,key,suffix,decimals)=>{
+    const el=document.getElementById(id);
+    el.oninput=()=>{
+      P[key]=+el.value;
+      if(suffix){
+        document.getElementById(suffix).textContent = (decimals!=null?(+el.value).toFixed(decimals):el.value)+'%';
+      }
+      save(); render();
+    };
+  };
   bindP('agg','agg','aggVal');
-  ['iTdee:tdee','iHeight:height','iGoalBf:goalBf'].forEach(p=>{
+  bindP('iGoalBf','goalBf','goalBfVal',1);
+  ['iTdee:tdee','iHeight:height'].forEach(p=>{
     const [id,key]=p.split(':'); document.getElementById(id).oninput=()=>{ const v=document.getElementById(id).value; P[key]=v===''?null:+v; save(); render(); };
   });
 
@@ -1928,6 +2166,10 @@ function bind(){
   if(weightTrendModal){
     weightTrendModal.addEventListener('click', e => { if(e.target.dataset && e.target.dataset.close) closeWeightTrend(); });
   }
+
+  // Attach the hover-crosshair handlers once. They look up live chart state on each event.
+  attachChartHover('chartFull',    () => _weightChart, buildWeightTooltip, 'weightHoverGroup', p => p.w);
+  attachChartHover('lbmChartFull', () => _lbmChart,    buildLbmTooltip,    'lbmHoverGroup',    p => p.lbm);
 }
 
 (function init(){
