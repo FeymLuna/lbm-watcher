@@ -275,12 +275,193 @@
     #tbl th:nth-child(11), #tbl td:nth-child(11) { display: none; }
     .tablewrap { overflow-x: visible; }
   }
+
+  /* ==========================================================================
+     PREMIUM POLISH PASS — v1.6.0 (style + motion + state)
+     Layered on top of the existing system. All choices reviewed against UI/UX
+     Pro Max guidelines:
+       - 150–300ms with spring-physics easing (motion rule)
+       - Press-feedback scale 0.95–1.05 (interaction rule)
+       - prefers-reduced-motion fully respected (a11y)
+       - Tri-color semantic preserved exactly (yellow=interactive, red=limit, green=positive)
+     ========================================================================== */
+
+  /* Motion tokens — one source of truth */
+  :root {
+    --ease:      cubic-bezier(.2, .7, .2, 1);  /* spring-out, "expensive" feel */
+    --ease-in:   cubic-bezier(.4, 0, 1, 1);
+    --dur-fast:  120ms;
+    --dur:       180ms;
+    --dur-slow:  260ms;
+  }
+
+  /* Text selection — accent-colored, premium signature */
+  ::selection      { background: var(--accent); color: var(--n900); }
+  ::-moz-selection { background: var(--accent); color: var(--n900); }
+
+  /* Custom dark scrollbars — slim, on-brand */
+  * { scrollbar-width: thin; scrollbar-color: var(--n600) transparent; }
+  *::-webkit-scrollbar           { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-track     { background: transparent; }
+  *::-webkit-scrollbar-thumb     { background: var(--n600); border-radius: 4px; transition: background var(--dur) var(--ease); }
+  *::-webkit-scrollbar-thumb:hover { background: var(--n500); }
+
+  /* Accent glow on hero surfaces — minimal, OLED-style "low white emission" */
+  .masthead h1            { text-shadow: 0 0 22px rgba(234,242,77,0.08); }
+  .masthead h1::before    { box-shadow: 0 0 10px rgba(234,242,77,0.45); }
+  .focus .val             { text-shadow: 0 0 14px rgba(255,255,255,0.04); }
+  .focus .card.key .val   { text-shadow: 0 0 16px rgba(234,242,77,0.10); }
+  .focus .card.alert .val { text-shadow: 0 0 16px rgba(242,115,77,0.10); }
+  /* Modal head bar glow — matches masthead */
+  .modal-head h2::before  { box-shadow: 0 0 10px rgba(234,242,77,0.45); }
+  .head.head-button h2::before { box-shadow: 0 0 8px rgba(234,242,77,0.35); }
+
+  /* Card depth — top-edge highlight + soft sheen. Adds physicality without weight. */
+  .focus .card {
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  }
+  .focus .card::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.025), transparent 50%);
+    pointer-events: none; border-radius: inherit;
+  }
+  .focus .card:hover { border-color: var(--n500); }
+
+  .panel { box-shadow: inset 0 1px 0 rgba(255,255,255,0.025); }
+
+  /* Stripe cells — hover wash + smoother transitions on value color */
+  .stripe .cell { transition: background var(--dur) var(--ease); position: relative; }
+  .stripe .cell:hover { background: var(--panel-2); }
+
+  /* Press-feedback — subtle scale on tap. Mobile-friendly without layout shift. */
+  .btn, .head.head-button, .modal-back, .del, .expand-icon,
+  .stripe .cell, .focus .card {
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn          { transition: filter var(--dur) var(--ease), box-shadow var(--dur) var(--ease), transform var(--dur-fast) var(--ease); }
+  .btn:hover    { filter: brightness(1.08); box-shadow: 0 6px 18px rgba(234,242,77,0.18); }
+  .btn:active   { transform: scale(0.97); }
+  .btn.ghost:hover  { filter: none; box-shadow: 0 0 0 1px var(--n400); }
+  .btn.ghost:active { transform: scale(0.98); }
+  .head.head-button:active { transform: scale(0.995); }
+  .modal-back:active       { transform: scale(0.92); }
+  .del { transition: color var(--dur) var(--ease), transform var(--dur-fast) var(--ease); }
+  .del:active { transform: scale(0.85); }
+
+  /* Inputs — accent border on focus + slightly stronger glow ring */
+  .field input { transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
+  .field input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(234,242,77,0.12);
+  }
+
+  /* Range slider — the agg slider shows its three zones as a track gradient.
+     Subtle (30% opacity) so it doesn't shout, but tells the story immediately. */
+  input[type=range]#agg {
+    background: linear-gradient(to right,
+      rgba(108, 224, 168, 0.30) 0% 60%,
+      rgba(234, 242, 77,  0.30) 60% 80%,
+      rgba(242, 115, 77,  0.30) 80% 100%);
+  }
+  input[type=range]::-webkit-slider-thumb {
+    transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur) var(--ease);
+  }
+  input[type=range]::-webkit-slider-thumb:active {
+    transform: scale(1.18);
+    box-shadow: 0 0 0 4px var(--n900), 0 0 12px rgba(234,242,77,0.5);
+  }
+  input[type=range]::-moz-range-thumb {
+    transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur) var(--ease);
+  }
+  input[type=range]::-moz-range-thumb:active {
+    transform: scale(1.18);
+    box-shadow: 0 0 0 4px var(--n900), 0 0 12px rgba(234,242,77,0.5);
+  }
+
+  /* Entrance animation — staggered fade-up on first page render.
+     Pure CSS, runs once per page load. Each .wrap child enters in sequence. */
+  @keyframes lbmEnter {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .wrap > *               { animation: lbmEnter 420ms var(--ease) both; }
+  .wrap > *:nth-child(1)  { animation-delay: 0ms; }
+  .wrap > *:nth-child(2)  { animation-delay: 60ms; }
+  .wrap > *:nth-child(3)  { animation-delay: 110ms; }
+  .wrap > *:nth-child(4)  { animation-delay: 160ms; }
+  .wrap > *:nth-child(5)  { animation-delay: 200ms; }
+  .wrap > *:nth-child(6)  { animation-delay: 240ms; }
+  .wrap > *:nth-child(7)  { animation-delay: 280ms; }
+  .wrap > *:nth-child(8)  { animation-delay: 320ms; }
+  .wrap > *:nth-child(n+9) { animation-delay: 360ms; }
+
+  /* Value-change flash — added when a stripe value updates after the first render.
+     Uses text-shadow so it doesn't fight with the .good/.warn/.danger color class. */
+  @keyframes lbmValueFlash {
+    0%   { text-shadow: 0 0 16px var(--accent), 0 0 6px var(--accent); }
+    100% { text-shadow: none; }
+  }
+  .stripe .v.changed { animation: lbmValueFlash 700ms var(--ease) both; }
+
+  /* Toast — floating status message, top-right, auto-dismiss */
+  .toast {
+    position: fixed;
+    top: max(20px, env(safe-area-inset-top));
+    right: max(20px, env(safe-area-inset-right));
+    z-index: 110;
+    background: var(--panel-2);
+    border: 1px solid var(--line-2);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--r);
+    padding: 12px 18px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(0,0,0,0.5);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+    transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+    max-width: 360px;
+  }
+  .toast.show   { opacity: 1; transform: translateY(0) scale(1); }
+  .toast.warn   { border-left-color: var(--warn);   }
+  .toast.danger { border-left-color: var(--danger); }
+  .toast.good   { border-left-color: var(--good);   }
+  @media (max-width: 560px) {
+    .toast { top: max(14px, env(safe-area-inset-top)); right: 14px; left: 14px; max-width: none; font-size: 9.5px; }
+  }
+
+  /* Empty-state — chart fallback when no data + records preview no-rows */
+  .empty-row td { padding: 28px 16px !important; text-align: center !important; color: var(--ink-faint); border-bottom: none !important; }
+  .empty-row:hover td { background: transparent !important; }
+  .empty-state-inline {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    color: var(--ink-faint); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+  }
+  .empty-state-inline svg { width: 48px; height: 28px; opacity: 0.5; }
+  .empty-state-inline .e-sub { font-size: 10px; text-transform: none; letter-spacing: 0.04em; opacity: 0.7; }
+
+  /* Reduced motion — disable all decorative motion entirely */
+  @media (prefers-reduced-motion: reduce) {
+    .wrap > *, .toast, .stripe .v.changed,
+    .modal-backdrop, .modal-sheet { animation: none !important; }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass - Watcher <span class="ver">v1.5.0</span></h1>
+    <h1>Lean Body Mass - Watcher <span class="ver">v1.6.0</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -855,6 +1036,8 @@ function corridorBand(pct){
 
 // ---------- Render ----------
 function render(){
+  // Snapshot stripe values before re-rendering so we can flash the ones that change.
+  const _prevStripe = captureStripeVals();
   DATA.sort((a,b)=>a.date.localeCompare(b.date));
   rebuildEwma();
   rebuildBf();
@@ -955,6 +1138,8 @@ function render(){
   renderChart({ compact: false });        // fullscreen modal — kept in sync so opening is instant
   renderLbmChart();                       // dashboard tile (compact)
   renderLbmChart({ compact: false });     // fullscreen modal — kept in sync so opening is instant
+  // After all DOM writes — celebrate the stripe cells whose values genuinely changed.
+  flashChangedValues(_prevStripe);
 }
 
 // Dashboard zeigt nur einen Ausschnitt: letzte 7 reale + erste 7 Projektionen.
@@ -999,6 +1184,23 @@ function renderTable(){
 function renderRows(tbody, rows){
   if(!tbody) return;
   tbody.innerHTML = '';
+  if(rows.length === 0){
+    // Empty-state row — spans all 11 columns; hidden cols on mobile don't affect colspan.
+    const tr = document.createElement('tr');
+    tr.className = 'empty-row';
+    tr.innerHTML = `<td colspan="11">
+      <div class="empty-state-inline">
+        <svg viewBox="0 0 60 30" fill="none" aria-hidden="true">
+          <path d="M2 24 L16 12 L30 18 L44 6 L58 10" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+          <circle cx="58" cy="10" r="2.5" fill="var(--accent)"/>
+        </svg>
+        <div>No entries yet</div>
+        <div class="e-sub">Track your first weight above to begin</div>
+      </div>
+    </td>`;
+    tbody.appendChild(tr);
+    return;
+  }
   rows.forEach(d => {
     const isReal     = d.type==='real';
     const idxInData  = isReal ? DATA.indexOf(d) : -1;
@@ -1155,8 +1357,15 @@ function renderChart(opts){
 
   if(series.length<2){
     const cx = W/2, cy = H/2;
-    const fs = compact ? 12 : 18;
-    svg.innerHTML = `<text x="${cx}" y="${cy}" fill="var(--axis)" text-anchor="middle" font-size="${fs}">At least 2 real entries required</text>`;
+    const lf = compact ? 11 : 14;
+    const sf = compact ? 10 : 12;
+    svg.innerHTML = `
+      <g transform="translate(${cx-30}, ${cy-30})" opacity="0.5">
+        <path d="M0 26 L15 14 L30 20 L45 8 L58 12" stroke="var(--ink-faint)" stroke-width="1.5" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+        <circle cx="58" cy="12" r="2.5" fill="var(--accent)"/>
+      </g>
+      <text x="${cx}" y="${cy+22}" fill="var(--ink-faint)" text-anchor="middle" font-size="${lf}" letter-spacing="3" font-weight="600">NO DATA YET</text>
+      <text x="${cx}" y="${cy+42}" fill="var(--ink-faint)" text-anchor="middle" font-size="${sf}" opacity="0.65">Add your first entry to begin</text>`;
     if(!compact){ const i=$('weightTrendInfo'); if(i) i.textContent='—'; }
     return;
   }
@@ -1325,8 +1534,15 @@ function renderLbmChart(opts){
   if(lbmS.length<2){
     const cx = compact ? 380 : 640;
     const cy = compact ? 85  : 320;
-    const fs = compact ? 11 : 18;
-    svg.innerHTML = `<text x="${cx}" y="${cy}" fill="var(--axis)" text-anchor="middle" font-size="${fs}">BF measurements required</text>`;
+    const lf = compact ? 11 : 14;
+    const sf = compact ? 10 : 12;
+    svg.innerHTML = `
+      <g transform="translate(${cx-30}, ${cy-26})" opacity="0.5">
+        <path d="M0 22 L14 10 L28 16 L42 6 L56 10" stroke="var(--good)" stroke-width="1.5" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+        <circle cx="56" cy="10" r="2.5" fill="var(--accent)"/>
+      </g>
+      <text x="${cx}" y="${cy+22}" fill="var(--ink-faint)" text-anchor="middle" font-size="${lf}" letter-spacing="3" font-weight="600">NO BF DATA YET</text>
+      <text x="${cx}" y="${cy+40}" fill="var(--ink-faint)" text-anchor="middle" font-size="${sf}" opacity="0.65">Log a body-fat % to start the trend</text>`;
     if(compact){ $('lbmGuardInfo').textContent='—'; $('lbmVerdict').textContent=''; }
     else { const i=$('lbmTrendInfo'); if(i) i.textContent='—'; }
     return;
@@ -1537,7 +1753,62 @@ function bumpDate(){
   cur.setDate(cur.getDate()+1);
   el.value=cur.toISOString().slice(0,10);
 }
-function setStatus(m){ document.getElementById('status').textContent=m; }
+// Status messages now go to both the Data-panel status line (persistent, for the
+// inline log) and a floating toast (transient, drives user attention). Severity
+// can be 'good' | 'warn' | 'danger' to tint the toast's left border.
+function setStatus(m, severity){
+  const el = document.getElementById('status');
+  if(el) el.textContent = m;
+  showToast(m, severity);
+}
+let _toastTimer = null;
+function showToast(msg, severity){
+  if(!msg) return;
+  let t = document.getElementById('toast');
+  if(!t){
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.className = 'toast';
+    t.setAttribute('role', 'status');
+    t.setAttribute('aria-live', 'polite');
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.classList.remove('warn','danger','good');
+  if(severity) t.classList.add(severity);
+  // Force restart of slide-in animation if a previous toast is still showing
+  t.classList.remove('show');
+  void t.offsetWidth;
+  t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+// Stripe value-change detection — capture before render(), then add .changed
+// class on cells whose .v text actually changed. Skips first render (placeholder
+// '—' values) so we don't flash everything on initial load.
+function captureStripeVals(){
+  const out = {};
+  document.querySelectorAll('.stripe .v').forEach(el => {
+    if(el.id) out[el.id] = el.textContent;
+  });
+  return out;
+}
+function flashChangedValues(oldVals){
+  document.querySelectorAll('.stripe .v').forEach(el => {
+    if(!el.id) return;
+    const before = oldVals[el.id];
+    const now    = el.textContent;
+    // Skip first-paint flashes (before is undefined or placeholder)
+    if(before == null) return;
+    if(before === now) return;
+    if(/^—/.test(before)) return;   // was placeholder, don't celebrate
+    // Restart the keyframe by toggling the class
+    el.classList.remove('changed');
+    void el.offsetWidth;
+    el.classList.add('changed');
+  });
+}
 
 function buildCSV(){
   const rows=[['date','weight','bodyfat']];
