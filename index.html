@@ -238,6 +238,23 @@
     .modal-backdrop, .modal-sheet { animation: none; }
   }
 
+  /* ===== LBM Trend fullscreen modal — chart fills the body, lives in landscape ===== */
+  #lbmTrendModal .modal-body { display: flex; align-items: stretch; justify-content: stretch; padding: 0; overflow: hidden; }
+  #lbmTrendModal #lbmChartFull { width: 100%; height: 100%; display: block; }
+  /* Rotate hint — shown when device is portrait and the orientation lock failed (iOS). */
+  #lbmTrendModal .rotate-hint { display: none; flex: 1; align-items: center; justify-content: center; text-align: center; color: var(--ink-dim); font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; padding: 24px; }
+  #lbmTrendModal .rotate-hint .rotate-icon { font-size: 48px; margin-bottom: 16px; color: var(--accent); animation: rotateNudge 2.4s ease-in-out infinite; }
+  @keyframes rotateNudge {
+    0%, 100% { transform: rotate(0deg); }
+    40%      { transform: rotate(90deg); }
+    60%      { transform: rotate(90deg); }
+  }
+  /* Activate the rotate hint only on narrow portrait viewports — landscape phones and any tablet/desktop show the chart. */
+  @media (max-width: 700px) and (orientation: portrait) {
+    #lbmTrendModal #lbmChartFull { display: none; }
+    #lbmTrendModal .rotate-hint { display: flex; }
+  }
+
   /* Mobile: dashboard preview only shows body-comp essentials.
      Columns hidden on ≤560px: BF~ (4), Target Def. (8), Target In (9), Min. In (10), ✕ (11).
      Kept: Date, Wt., BF%, LBM, FFMI, BMI.
@@ -255,7 +272,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass - Watcher <span class="ver">v1.3.1</span></h1>
+    <h1>Lean Body Mass - Watcher <span class="ver">v1.4.0</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -348,9 +365,15 @@
     </div>
   </div>
 
-  <!-- LBM Trend -->
+  <!-- LBM Trend — tap/click the head to open fullscreen detail view -->
   <div class="panel" style="margin-bottom:16px;">
-    <div class="head"><h2>LBM Trend</h2><span class="sub" style="font-size:9px;color:var(--ink-faint);" id="lbmGuardInfo">—</span></div>
+    <div class="head head-button" id="lbmTrendHead" role="button" tabindex="0" aria-label="Open LBM Trend fullscreen view" aria-haspopup="dialog">
+      <h2>LBM Trend</h2>
+      <span class="head-right">
+        <span class="sub" style="font-size:9px;color:var(--ink-faint);" id="lbmGuardInfo">—</span>
+        <span class="expand-icon" aria-hidden="true">⤢</span>
+      </span>
+    </div>
     <svg id="lbmChart" viewBox="0 0 760 170" preserveAspectRatio="xMidYMid meet"></svg>
     <div class="legend">
       <span><i style="background:var(--good)"></i>LBM real (smoothed)</span>
@@ -392,6 +415,31 @@
       <input type="file" id="fileInput" accept=".csv,text/csv,text/plain,application/vnd.ms-excel" style="display:none;">
       <div class="bar"><button class="btn ghost" id="clearBtn">Clear storage</button></div>
       <div class="hint">Data lives locally in the browser (localStorage) — no login, no cloud. Export saves your full state as CSV; "Clear storage" irreversibly deletes all locally stored data. Export regularly.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================================
+     LBM Trend fullscreen modal — opens via the LBM Trend panel head.
+     Tries to enter fullscreen + lock landscape; iOS Safari rejects the
+     orientation lock silently, so the rotate hint kicks in via CSS.
+     ==================================================================== -->
+<div class="modal" id="lbmTrendModal" role="dialog" aria-modal="true" aria-labelledby="lbmTrendModalTitle" hidden>
+  <div class="modal-backdrop" data-close="1"></div>
+  <div class="modal-sheet">
+    <header class="modal-head">
+      <button class="modal-back" id="lbmTrendClose" type="button" aria-label="Back to dashboard"><span aria-hidden="true">←</span></button>
+      <h2 id="lbmTrendModalTitle">LBM Trend</h2>
+      <span class="sub" id="lbmTrendInfo">—</span>
+    </header>
+    <div class="modal-body">
+      <svg id="lbmChartFull" viewBox="0 0 1280 640" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="rotate-hint" role="status" aria-live="polite">
+        <div>
+          <div class="rotate-icon" aria-hidden="true">⟳</div>
+          <div>Rotate device to landscape</div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -683,7 +731,7 @@ function buildProjection(){
   // Modus A — reale Trendlinie liegt vor: LBM-Änderung ist ZEIT-basiert (kg/Tag).
   //           Mehr Tage bis Ziel ⇒ mehr LBM-Akkumulation (positiv oder negativ).
   //           Bei kleinerem agg dauert es länger ⇒ Endgewicht ändert sich entsprechend.
-  // Modus B — zu wenig Daten (Warm-up): LBM-Anteil skaliert mit der Rate-of-Loss,
+  // Modus B — zu wenig Daten (Settling): LBM-Anteil skaliert mit der Rate-of-Loss,
   //           statt eine starre 15%-Konstante zu nehmen. So bricht das Endgewicht aus
   //           der agg-Unabhängigkeit heraus.
   const stats         = realLbmStats();
@@ -821,7 +869,7 @@ function render(){
   if(lbmStats.deltaLbm != null){
     const sign = lbmStats.deltaLbm>=0?'+':'';
     $('sLbmReal').innerHTML = `${sign}${lbmStats.deltaLbm.toFixed(2)}<small> kg${lbmStats.warmup?' ⚠':''}</small>`;
-    $('sLbmReal').title = lbmStats.warmup ? 'Warm-up phase (<3 weeks) — not yet meaningful' : 'Smoothed real LBM trend since measurement start';
+    $('sLbmReal').title = lbmStats.warmup ? 'Settling phase (<3 weeks) — not yet meaningful' : 'Smoothed real LBM trend since measurement start';
   } else { $('sLbmReal').innerHTML='—<small> kg</small>'; }
   $('sBmi').textContent  = (r&&r.bmi!=null)?r.bmi.toFixed(2):'—';
   $('sFfmi').textContent = (r&&r.ffmi)?r.ffmi.toFixed(2):'—';
@@ -865,7 +913,8 @@ function render(){
 
   renderTable();
   renderChart();
-  renderLbmChart();
+  renderLbmChart();                       // dashboard tile (compact)
+  renderLbmChart({ compact: false });     // fullscreen modal — kept in sync so opening is instant
 }
 
 // Dashboard zeigt nur einen Ausschnitt: letzte 7 reale + erste 7 Projektionen.
@@ -962,6 +1011,50 @@ function recordsKeyHandler(e){
   if(e.key === 'Escape'){ e.preventDefault(); closeRecords(); }
 }
 
+// ----- LBM-Trend-Modal -----
+// Vollbild-Chart mit allen FFMI-Schwellen, Settling-Bereich, Today-Marker etc.
+// Versucht Fullscreen + Landscape-Orientierung zu erzwingen — iOS Safari lehnt das
+// orientation.lock still ab, dann zeigt der Rotate-Hint via CSS-Mediaquery.
+function openLbmTrend(){
+  const m = document.getElementById('lbmTrendModal');
+  if(!m) return;
+  m.hidden = false;
+  document.body.style.overflow = 'hidden';
+  tryLandscape();
+  renderLbmChart({ compact: false });
+  setTimeout(() => { const c = document.getElementById('lbmTrendClose'); if(c) c.focus(); }, 0);
+  document.addEventListener('keydown', lbmTrendKeyHandler);
+}
+async function tryLandscape(){
+  // Beste-Möglichkeit: Fullscreen + Orientation-Lock. Beides darf still fehlschlagen
+  // (z.B. iOS Safari unterstützt screen.orientation.lock nicht).
+  try {
+    const el = document.documentElement;
+    if(!document.fullscreenElement && el.requestFullscreen){
+      await el.requestFullscreen({ navigationUI: 'hide' }).catch(()=>{});
+    }
+    if(screen.orientation && screen.orientation.lock){
+      await screen.orientation.lock('landscape').catch(()=>{});
+    }
+  } catch(e){ /* unsupported — ignore, der Modal funktioniert trotzdem */ }
+}
+async function closeLbmTrend(){
+  const m = document.getElementById('lbmTrendModal');
+  if(!m || m.hidden) return;
+  m.hidden = true;
+  document.body.style.overflow = '';
+  document.removeEventListener('keydown', lbmTrendKeyHandler);
+  try {
+    if(screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+    if(document.fullscreenElement && document.exitFullscreen) await document.exitFullscreen();
+  } catch(e){}
+  const trigger = document.getElementById('lbmTrendHead');
+  if(trigger) trigger.focus();
+}
+function lbmTrendKeyHandler(e){
+  if(e.key === 'Escape'){ e.preventDefault(); closeLbmTrend(); }
+}
+
 function fmtD(iso){ const [y,m,d]=iso.split('-'); return d+'.'+m+'.'+y.slice(2); }
 
 function renderChart(){
@@ -1025,26 +1118,44 @@ function renderChart(){
   svg.innerHTML=g;
 }
 
-function renderLbmChart(){
-  const svg=document.getElementById('lbmChart');
+// renderLbmChart — zwei Render-Modi:
+//   opts.compact = true  (default)  → Dashboard-Tile (760×170), ohne Settling/FFMI-19/22, ohne Today-Marker
+//   opts.compact = false             → Vollbild-Modul (1280×640), mit Settling-Bereich, allen FFMI-Schwellen,
+//                                       Today-Marker, Raw-Dots, mehr X-Labels, Projektions-Endpunkt
+function renderLbmChart(opts){
+  opts = opts || {};
+  const compact = opts.compact !== false;
+  const svg = document.getElementById(compact ? 'lbmChart' : 'lbmChartFull');
+  if(!svg) return;
   const $=id=>document.getElementById(id);
   const stats = realLbmStats();
   const lbmS  = stats.lbmS;
+
+  // Leerer/zu dünner Zustand
   if(lbmS.length<2){
-    svg.innerHTML='<text x="380" y="85" fill="var(--axis)" text-anchor="middle" font-size="11">BF measurements required</text>';
-    $('lbmGuardInfo').textContent='—'; $('lbmVerdict').textContent=''; return;
+    const cx = compact ? 380 : 640;
+    const cy = compact ? 85  : 320;
+    const fs = compact ? 11 : 18;
+    svg.innerHTML = `<text x="${cx}" y="${cy}" fill="var(--axis)" text-anchor="middle" font-size="${fs}">BF measurements required</text>`;
+    if(compact){ $('lbmGuardInfo').textContent='—'; $('lbmVerdict').textContent=''; }
+    else { const i=$('lbmTrendInfo'); if(i) i.textContent='—'; }
+    return;
   }
-  const W=760,H=170,padL=42,padR=14,padT=14,padB=24;
+
+  const W    = compact ? 760 : 1280;
+  const H    = compact ? 170 : 640;
+  const padL = compact ? 42  : 64;
+  const padR = compact ? 14  : 28;
+  const padT = compact ? 14  : 40;
+  const padB = compact ? 24  : 56;
   const startLbm = stats.startLbm;
   const startW   = stats.startW;
 
-  // Projektion (LBM) bis zum Ziel-Datum — kommt direkt aus buildProjection(), das den
-  // FFMI-25-Cap-Algorithmus benutzt. Falls realer LBM-Trend negativ ist (Recomp/Bulk),
-  // sieht man die asymptotische Annäherung an FFMI 25 als sich verflachende Kurve.
+  // Projektion (LBM) bis zum Ziel-Datum — via buildProjection (FFMI-25-Cap-Algorithmus).
   const proj    = buildProjection();
   const projLbm = proj.map(p => ({ date: p.date, lbm: p.lbm }));
 
-  // Gewicht an einem Datum holen — real (geglättet) oder projiziert.
+  // Gewicht an einem Datum — real (geglättet) oder projiziert.
   const wAtAny = date => {
     const idx = DATA.findIndex(d => d.date===date && d.type==='real');
     if(idx >= 0) return smooth(idx);
@@ -1061,9 +1172,17 @@ function renderLbmChart(){
   const band10 = lineAtFrac(0.10);
   const band20 = lineAtFrac(0.20);
 
-  // FFMI-25-Decke (kg) — wenn Höhe bekannt
+  // FFMI-Decken + Schwellen
   const maxLbm  = maxLbmForHeight();
   const haveCap = isFinite(maxLbm);
+  const heightM = (P.height && P.height > 0) ? P.height/100 : null;
+  // Im Vollbild zeigen wir alle drei FFMI-Schwellen (semantisch gefärbt).
+  // Color-Konvention: jede Linie trägt die Farbe der Zone, die sie nach oben definiert.
+  const ffmiLines = (!compact && heightM) ? [
+    { ffmi: 19, color: 'var(--warn)',   label: 'FFMI 19' },
+    { ffmi: 22, color: 'var(--good)',   label: 'FFMI 22' },
+    { ffmi: 25, color: 'var(--danger)', label: 'FFMI 25 · cap' },
+  ] : [];
 
   const allLbm = [
     ...lbmS.map(p=>p.lbm),
@@ -1071,9 +1190,11 @@ function renderLbmChart(){
     ...band10.map(p=>p.lbm),
     ...band20.map(p=>p.lbm),
   ];
-  // Cap nur ins Y-Range einbeziehen wenn die Projektion sich der Decke wirklich nähert,
-  // sonst skaliert das Chart unnötig hoch.
-  if(haveCap && projLbm.length){
+  if(!compact && heightM){
+    // Vollbild: alle FFMI-Schwellen in die Y-Skala einbeziehen — sie definieren die Lesehilfe.
+    ffmiLines.forEach(t => allLbm.push(t.ffmi * heightM * heightM));
+  } else if(haveCap && projLbm.length){
+    // Compact: Cap nur einbeziehen, wenn die Projektion sich der Decke nähert.
     const projMax = Math.max(...projLbm.map(p=>p.lbm));
     if(projMax > startLbm * 0.98) allLbm.push(maxLbm);
   }
@@ -1085,72 +1206,126 @@ function renderLbmChart(){
   const sy = v => padT + (maxY-v)/((maxY-minY)||1) * (H-padT-padB);
   const path = arr => arr.map((p,i) => (i?'L':'M') + sx(+new Date(p.date)).toFixed(1) + ',' + sy(p.lbm).toFixed(1)).join(' ');
 
+  // Font-Größen skalieren mit compact/fullscreen
+  const fs = compact
+    ? { y: 12, label: 11, settle: 10, x: 12, ann: 11 }
+    : { y: 16, label: 14, settle: 13, x: 14, ann: 14 };
+
   let g='';
-  for(let i=0; i<=3; i++){
-    const v=minY+(maxY-minY)*i/3; const yy=sy(v);
+  // Y-Grid + Labels
+  const ySteps = compact ? 3 : 5;
+  for(let i=0; i<=ySteps; i++){
+    const v=minY+(maxY-minY)*i/ySteps; const yy=sy(v);
     g+=`<line x1="${padL}" y1="${yy}" x2="${W-padR}" y2="${yy}" stroke="var(--grid)"/>`;
-    g+=`<text x="${padL-6}" y="${yy+3}" fill="var(--axis)" font-size="12" text-anchor="end">${v.toFixed(1)}</text>`;
+    g+=`<text x="${padL-8}" y="${yy+4}" fill="var(--axis)" font-size="${fs.y}" text-anchor="end">${v.toFixed(1)}</text>`;
   }
 
-  // Planungsband 10–20% — gefüllte Zone + Linien + Labels.
+  // Planungsband 10–20%
   if(band10.length>1 && band20.length>1){
     const topPts = band10.map(p=>`${sx(+new Date(p.date)).toFixed(1)},${sy(p.lbm).toFixed(1)}`);
     const botPts = band20.slice().reverse().map(p=>`${sx(+new Date(p.date)).toFixed(1)},${sy(p.lbm).toFixed(1)}`);
     g+=`<polygon points="${topPts.concat(botPts).join(' ')}" fill="var(--ink)" fill-opacity="0.07" stroke="none"/>`;
     g+=`<path d="${path(band10)}" fill="none" stroke="var(--n500)" stroke-width="1"/>`;
     g+=`<path d="${path(band20)}" fill="none" stroke="var(--n500)" stroke-width="1"/>`;
-    g+=`<text x="${W-padR}" y="${sy(band10[band10.length-1].lbm)-3}" fill="var(--ink-dim)" font-size="11" text-anchor="end">10% · good</text>`;
-    g+=`<text x="${W-padR}" y="${sy(band20[band20.length-1].lbm)+9}" fill="var(--ink-dim)" font-size="11" text-anchor="end">20% · risk</text>`;
+    g+=`<text x="${W-padR}" y="${sy(band10[band10.length-1].lbm)-3}" fill="var(--ink-dim)" font-size="${fs.label}" text-anchor="end">10% · good</text>`;
+    g+=`<text x="${W-padR}" y="${sy(band20[band20.length-1].lbm)+fs.label+1}" fill="var(--ink-dim)" font-size="${fs.label}" text-anchor="end">20% · risk</text>`;
   }
 
-  // FFMI-25 Decke — gestrichelt rot, mit Label, nur wenn im sichtbaren Y-Bereich.
-  if(haveCap && maxLbm >= minY && maxLbm <= maxY){
+  // FFMI-Schwellen
+  if(!compact){
+    ffmiLines.forEach(t => {
+      const lbmVal = t.ffmi * heightM * heightM;
+      if(lbmVal >= minY && lbmVal <= maxY){
+        const y = sy(lbmVal);
+        g+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="${t.color}" stroke-width="1" stroke-dasharray="6 4"/>`;
+        g+=`<text x="${padL+8}" y="${y-4}" fill="${t.color}" font-size="${fs.label}" text-anchor="start">${t.label} ≈ ${lbmVal.toFixed(1)} kg</text>`;
+      }
+    });
+  } else if(haveCap && maxLbm >= minY && maxLbm <= maxY){
+    // Compact: nur die Cap-Linie
     const capY = sy(maxLbm);
     g+=`<line x1="${padL}" y1="${capY}" x2="${W-padR}" y2="${capY}" stroke="var(--danger)" stroke-width="1" stroke-dasharray="4 3"/>`;
-    g+=`<text x="${W-padR}" y="${capY-3}" fill="var(--danger)" font-size="11" text-anchor="end">FFMI 25 cap ≈ ${maxLbm.toFixed(1)} kg</text>`;
+    g+=`<text x="${W-padR}" y="${capY-3}" fill="var(--danger)" font-size="${fs.label}" text-anchor="end">FFMI 25 cap ≈ ${maxLbm.toFixed(1)} kg</text>`;
   }
 
-  // Einschwing-Schraffur erste 21 Tage
-  if(lbmS.length>1){
+  // Settling-Bereich (vormals "WARM-UP") — nur im Vollbild.
+  if(!compact && lbmS.length>1){
     const warmEnd=Math.min(20,lbmS.length-1);
     const x0=sx(+new Date(lbmS[0].date)), x1=sx(+new Date(lbmS[warmEnd].date));
     g+=`<rect x="${x0}" y="${padT}" width="${(x1-x0).toFixed(1)}" height="${H-padT-padB}" fill="var(--accent)" fill-opacity="0.04"/>`;
-    g+=`<text x="${((x0+x1)/2).toFixed(1)}" y="${padT+11}" fill="var(--axis)" font-size="10" text-anchor="middle">WARM-UP</text>`;
+    g+=`<text x="${((x0+x1)/2).toFixed(1)}" y="${padT+fs.settle+6}" fill="var(--axis)" font-size="${fs.settle}" text-anchor="middle" letter-spacing="2">SETTLING</text>`;
+  }
+
+  // Today-Marker — Vollbild
+  if(!compact){
+    const todayX = sx(+new Date(lbmS[lbmS.length-1].date));
+    g+=`<line x1="${todayX.toFixed(1)}" y1="${padT}" x2="${todayX.toFixed(1)}" y2="${H-padB}" stroke="var(--ink-faint)" stroke-width="1" stroke-dasharray="2 4"/>`;
+    g+=`<text x="${todayX.toFixed(1)}" y="${padT-10}" fill="var(--ink-faint)" font-size="${fs.label}" text-anchor="middle" letter-spacing="2">TODAY</text>`;
   }
 
   // Projektion (gestrichelt grau) — angeschlossen ans letzte reale LBM.
   if(projLbm.length){
     const projLine = [{ date: lbmS[lbmS.length-1].date, lbm: lbmS[lbmS.length-1].lbm }, ...projLbm];
-    g+=`<path d="${path(projLine)}" fill="none" stroke="var(--proj)" stroke-width="1.5" stroke-dasharray="3 3"/>`;
+    g+=`<path d="${path(projLine)}" fill="none" stroke="var(--proj)" stroke-width="${compact?1.5:2}" stroke-dasharray="${compact?'3 3':'5 5'}"/>`;
   }
   // Reale LBM (durchgezogen, grün)
-  g+=`<path d="${path(lbmS)}" fill="none" stroke="var(--good)" stroke-width="2"/>`;
+  g+=`<path d="${path(lbmS)}" fill="none" stroke="var(--good)" stroke-width="${compact?2:2.5}" stroke-linejoin="round"/>`;
 
-  // X-Labels: Start, heute (letzter realer Tag), Ziel-Ende
-  const xLabels = projLbm.length
-    ? [lbmS[0], lbmS[lbmS.length-1], projLbm[projLbm.length-1]]
-    : [lbmS[0], lbmS[lbmS.length-1]];
+  // Raw-LBM-Punkte (vor Glättung) — Vollbild only, würde Dashboard-Tile zumüllen.
+  if(!compact){
+    lbmS.forEach(p => {
+      if(p.raw == null) return;
+      g+=`<circle cx="${sx(+new Date(p.date)).toFixed(1)}" cy="${sy(p.raw).toFixed(1)}" r="2.4" fill="var(--n400)" opacity="0.7"/>`;
+    });
+  }
+
+  // Projektions-End-Marker — Vollbild
+  if(!compact && projLbm.length){
+    const last = projLbm[projLbm.length-1];
+    const ex = sx(+new Date(last.date)).toFixed(1);
+    const ey = sy(last.lbm).toFixed(1);
+    g+=`<circle cx="${ex}" cy="${ey}" r="4" fill="var(--proj)"/>`;
+    g+=`<text x="${(parseFloat(ex)-8).toFixed(1)}" y="${(parseFloat(ey)-8).toFixed(1)}" fill="var(--ink-dim)" font-size="${fs.ann}" text-anchor="end">${last.lbm.toFixed(1)} kg @ ${fmtD(last.date)}</text>`;
+  }
+
+  // X-Achsen-Labels
+  const xLabels = compact
+    ? (projLbm.length ? [lbmS[0], lbmS[lbmS.length-1], projLbm[projLbm.length-1]] : [lbmS[0], lbmS[lbmS.length-1]])
+    : (() => {
+        const labels = [];
+        const n = 6;
+        for(let i=0; i<n; i++){
+          const t = minX + (maxX - minX) * i / (n-1);
+          labels.push({ date: new Date(t).toISOString().slice(0,10) });
+        }
+        return labels;
+      })();
   xLabels.forEach((p, i) => {
     const anchor = i===0 ? 'start' : (i===xLabels.length-1 ? 'end' : 'middle');
-    g+=`<text x="${sx(+new Date(p.date))}" y="${H-7}" fill="var(--axis)" font-size="12" text-anchor="${anchor}">${fmtD(p.date)}</text>`;
+    g+=`<text x="${sx(+new Date(p.date))}" y="${H-padB+fs.x+6}" fill="var(--axis)" font-size="${fs.x}" text-anchor="${anchor}">${fmtD(p.date)}</text>`;
   });
+
   svg.innerHTML=g;
 
-  // Verdikt aus realLbmStats — keine doppelte Regression mehr.
+  // Header-Info / Verdict
   const realFrac     = stats.realFrac;
   const totalLoss    = stats.totalLoss;
   const realLbmDelta = stats.deltaLbm;
-
-  $('lbmGuardInfo').textContent = (realFrac != null && totalLoss != null && totalLoss > 0.5)
+  const headerText = (realFrac != null && totalLoss != null && totalLoss > 0.5)
     ? `Real LBM share ≈ ${(realFrac*100).toFixed(0)}% · Δ LBM ${realLbmDelta>=0?'+':''}${realLbmDelta.toFixed(2)} kg`
     : `Δ LBM ${realLbmDelta>=0?'+':''}${realLbmDelta.toFixed(2)} kg · share still unstable`;
 
-  const v = $('lbmVerdict');
-  if(stats.warmup){ v.textContent='⚠ Warm-up phase — not yet interpretable'; v.style.color='var(--ink-faint)'; }
-  else if(totalLoss==null || totalLoss<=0.5 || realFrac==null){ v.textContent='Too little weight loss for a stable verdict'; v.style.color='var(--ink-faint)'; }
-  else if(realFrac>0.20){ v.textContent='⚠ LBM share above 20% — ease deficit, prioritize protein'; v.style.color='var(--danger)'; }
-  else if(realFrac>=0.10){ v.textContent='● LBM share within planning band (10–20%)'; v.style.color='var(--warn)'; }
-  else { v.textContent='✓ LBM share below 10% — better than planned'; v.style.color='var(--good)'; }
+  if(compact){
+    $('lbmGuardInfo').textContent = headerText;
+    const v = $('lbmVerdict');
+    if(stats.warmup){ v.textContent='⚠ Settling phase — not yet interpretable'; v.style.color='var(--ink-faint)'; }
+    else if(totalLoss==null || totalLoss<=0.5 || realFrac==null){ v.textContent='Too little weight loss for a stable verdict'; v.style.color='var(--ink-faint)'; }
+    else if(realFrac>0.20){ v.textContent='⚠ LBM share above 20% — ease deficit, prioritize protein'; v.style.color='var(--danger)'; }
+    else if(realFrac>=0.10){ v.textContent='● LBM share within planning band (10–20%)'; v.style.color='var(--warn)'; }
+    else { v.textContent='✓ LBM share below 10% — better than planned'; v.style.color='var(--good)'; }
+  } else {
+    const i = $('lbmTrendInfo'); if(i) i.textContent = headerText;
+  }
 }
 
 // ---------- Actions ----------
@@ -1261,6 +1436,21 @@ function bind(){
   if(recordsModal){
     // Backdrop click (any element marked data-close) dismisses the modal.
     recordsModal.addEventListener('click', e => { if(e.target.dataset && e.target.dataset.close) closeRecords(); });
+  }
+
+  // LBM Trend tile → fullscreen modal. Same trigger pattern as Records.
+  const lbmTrendHead = document.getElementById('lbmTrendHead');
+  if(lbmTrendHead){
+    lbmTrendHead.addEventListener('click', openLbmTrend);
+    lbmTrendHead.addEventListener('keydown', e => {
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openLbmTrend(); }
+    });
+  }
+  const lbmTrendClose = document.getElementById('lbmTrendClose');
+  if(lbmTrendClose) lbmTrendClose.addEventListener('click', closeLbmTrend);
+  const lbmTrendModal = document.getElementById('lbmTrendModal');
+  if(lbmTrendModal){
+    lbmTrendModal.addEventListener('click', e => { if(e.target.dataset && e.target.dataset.close) closeLbmTrend(); });
   }
 }
 
