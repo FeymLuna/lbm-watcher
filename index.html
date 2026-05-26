@@ -75,7 +75,7 @@
   .focus .note { font-size: 10px; color: var(--ink-faint); margin-top: 10px; letter-spacing: 0.04em; line-height: 1.5; }
 
   /* Secondary stats */
-  .stripe { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; margin-bottom: 18px; }
+  .stripe { display: grid; grid-template-columns: repeat(8, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; margin-bottom: 18px; }
   .stripe .cell { background: var(--panel); padding: 13px 14px; }
   .stripe .k { font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-faint); }
   .stripe .v { font-size: 19px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
@@ -180,11 +180,11 @@
   /* Version pill — small, muted, sits inline with the title */
   .masthead h1 .ver { font-size: 9px; letter-spacing: 0.12em; color: var(--ink-faint); margin-left: 12px; font-weight: 500; vertical-align: middle; text-transform: none; }
   /* Mobile: hide secondary table columns so the table fits without horizontal scroll.
-     Columns hidden on ≤560px: BF~ (4), BMI (6), Target Def. (7), Target In (8).
-     Kept: Date, Wt., BF%, LBM, Min. In, ✕ — the actionable safety-screen subset. */
+     Columns hidden on ≤560px: BF~ (4), Target Def. (7), Target In (8).
+     Kept: Date, Wt., BF%, LBM, FFMI, BMI, ✕ — body-comp at a glance.
+     The intake/safety columns return later via a detail view. */
   @media (max-width: 560px) {
     #tbl th:nth-child(4), #tbl td:nth-child(4),
-    #tbl th:nth-child(6), #tbl td:nth-child(6),
     #tbl th:nth-child(7), #tbl td:nth-child(7),
     #tbl th:nth-child(8), #tbl td:nth-child(8) { display: none; }
     .tablewrap { overflow-x: visible; }
@@ -194,7 +194,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass - Watcher <span class="ver">v1.0.1</span></h1>
+    <h1>Lean Body Mass - Watcher <span class="ver">v1.1.0</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -230,15 +230,16 @@
     </div>
   </div>
 
-  <!-- SECONDARY STRIP -->
+  <!-- SECONDARY STRIP — 8 cells, divides cleanly to 4 on tablet, 2 on phone -->
   <div class="stripe">
     <div class="cell"><div class="k">Weight (smoothed)</div><div class="v" id="sWeight">—<small> kg</small></div></div>
-    <div class="cell"><div class="k">Trend 7d</div><div class="v" id="sTrend">—<small> kg/wk</small></div></div>
+    <div class="cell"><div class="k">Weight trend 7d</div><div class="v" id="sTrend">—<small> kg/wk</small></div></div>
     <div class="cell"><div class="k">BF (smoothed)</div><div class="v" id="sBf">—<small> %</small></div></div>
+    <div class="cell"><div class="k">BF trend 7d</div><div class="v" id="sBfTrend">—<small> %/wk</small></div></div>
     <div class="cell"><div class="k">LBM</div><div class="v" id="sLbm">—<small> kg</small></div></div>
     <div class="cell"><div class="k">LBM Δ real (smoothed)</div><div class="v" id="sLbmReal">—<small> kg</small></div></div>
-    <div class="cell"><div class="k">BMI</div><div class="v" id="sBmi">—</div></div>
     <div class="cell"><div class="k">FFMI</div><div class="v" id="sFfmi">—</div></div>
+    <div class="cell"><div class="k">BMI</div><div class="v" id="sBmi">—</div></div>
   </div>
 
   <!-- Entry — first, so it's reachable without scrolling on mobile -->
@@ -309,7 +310,7 @@
     <div class="head"><h2>Records</h2><span class="sub" style="font-size:9px;color:var(--ink-faint);" id="countInfo">—</span></div>
     <div class="tablewrap">
       <table id="tbl">
-        <thead><tr><th>Date</th><th>Wt.</th><th>BF%</th><th>BF~</th><th>LBM</th><th>BMI</th><th>Target Def.</th><th>Target In</th><th>Min. In</th><th></th></tr></thead>
+        <thead><tr><th>Date</th><th>Wt.</th><th>BF%</th><th>BF~</th><th>LBM</th><th>FFMI</th><th>Target Def.</th><th>Target In</th><th>BMI</th><th></th></tr></thead>
         <tbody id="tbody"></tbody>
       </table>
     </div>
@@ -324,7 +325,10 @@
         <button class="btn ghost" id="exportBtn">Export CSV</button>
         <button class="btn ghost" id="importBtn">Import CSV</button>
       </div>
-      <input type="file" id="fileInput" accept=".csv" style="display:none;">
+      <!-- accept broadened: mobile pickers sometimes hide .csv when the MIME type
+           isn't exactly "text/csv". Listing the common variants keeps the picker
+           permissive without dropping all filtering on desktop. -->
+      <input type="file" id="fileInput" accept=".csv,text/csv,text/plain,application/vnd.ms-excel" style="display:none;">
       <div class="bar"><button class="btn ghost" id="clearBtn">Clear storage</button></div>
       <div class="hint">Data lives locally in the browser (localStorage) — no login, no cloud. Export saves your full state as CSV; "Clear storage" irreversibly deletes all locally stored data. Export regularly.</div>
     </div>
@@ -536,7 +540,7 @@ function render(){
   } else { $('fTarget').textContent='—'; $('fIntake').textContent='—'; $('fMin').textContent='—'; $('fTargetNote').textContent='BF value required'; $('fIntakeNote').textContent='TDEE − target deficit'; }
 
   $('sWeight').innerHTML = (sW?sW.toFixed(2):'—')+'<small> kg</small>';
-  // Trend: geglättet heute vs vor 7 realen
+  // Trend: geglättet heute vs vor 7 realen — gleiche Logik für Gewicht und BF
   let trend='—';
   if(reals.length>=8){
     const a=smooth(headIdx), bIdx=DATA.indexOf(reals[reals.length-8]);
@@ -544,7 +548,16 @@ function render(){
     if(a&&b) trend=((a-b)).toFixed(2);
   }
   $('sTrend').innerHTML = trend+'<small> kg/wk</small>';
-  $('sBf').innerHTML = (headBf!=null?headBf.toFixed(1):'—')+'<small> %'+(headBfRaw!=null&&Math.abs(headBfRaw-headBf)>=0.1?' · roh '+headBfRaw.toFixed(1):'')+'</small>';
+  // BF-Trend 7d: nutzt _bfCache (geglätteter KFA an realen Tagen) — selbe Mechanik wie Gewicht.
+  let bfTrend='—';
+  if(reals.length>=8){
+    const aBf=smoothBf(headIdx);
+    const bBfIdx=DATA.indexOf(reals[reals.length-8]);
+    const bBf=smoothBf(bBfIdx);
+    if(aBf!=null && bBf!=null) bfTrend=((aBf-bBf)).toFixed(2);
+  }
+  $('sBfTrend').innerHTML = bfTrend+'<small> %/wk</small>';
+  $('sBf').innerHTML = (headBf!=null?headBf.toFixed(1):'—')+'<small> %'+(headBfRaw!=null&&Math.abs(headBfRaw-headBf)>=0.1?' · raw '+headBfRaw.toFixed(1):'')+'</small>';
   $('sLbm').innerHTML = (r&&r.lbm?r.lbm.toFixed(2):'—')+'<small> kg</small>';
   // Reale LBM-Veränderung (geglättet) seit erstem KFA-Messpunkt
   const lbmS = realLbmSeries();
@@ -602,10 +615,10 @@ function renderTable(){
       `<td>${bfRaw!=null?bfRaw.toFixed(1):'—'}</td>`+
       `<td>${bfSm!=null?bfSm.toFixed(1):'—'}</td>`+
       `<td>${r.lbm?r.lbm.toFixed(1):'—'}</td>`+
-      `<td>${r.bmi!=null?r.bmi.toFixed(1):'—'}</td>`+
+      `<td>${r.ffmi?r.ffmi.toFixed(1):'—'}</td>`+
       `<td>${r.target?Math.round(r.target):'—'}</td>`+
       `<td>${r.target?Math.round(P.tdee-r.target):'—'}</td>`+
-      `<td>${r.minIntake?Math.round(r.minIntake):'—'}</td>`+
+      `<td>${r.bmi!=null?r.bmi.toFixed(1):'—'}</td>`+
       `<td>${isReal?`<span class="del" data-i="${idxInData}">✕</span>`:''}</td>`;
     tb.appendChild(tr);
   });
@@ -785,11 +798,28 @@ function buildCSV(){
   rows.push(['#params','agg='+P.agg,'lbmpct='+P.lbmpct,'tdee='+P.tdee+';alpert='+P.alpert+';height='+P.height+';goalBf='+P.goalBf+';buffer='+P.buffer]);
   return rows.map(r=>r.join(',')).join('\n');
 }
-function exportCSV(){
+async function exportCSV(){
+  // Mobile is finicky: an <a download> click usually lands silently in /Downloads
+  // and the app's later file picker can't see it. Web Share API opens the system
+  // share sheet → user picks Drive / Files / Mail directly. Desktop browsers
+  // typically don't implement canShare({files}), so we fall back to the classic
+  // blob download there.
   const csv=buildCSV();
+  const filename='lbm-watcher_'+new Date().toISOString().slice(0,10)+'.csv';
+  try {
+    const file=new File([csv], filename, {type:'text/csv'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:'LBM-Watcher export'});
+      setStatus('CSV shared ('+DATA.length+' entries).');
+      return;
+    }
+  } catch(e){
+    if(e && e.name==='AbortError'){ setStatus('Export cancelled.'); return; }
+    // any other error: drop through to the download fallback
+  }
   try {
     const blob=new Blob([csv],{type:'text/csv'}); const url=URL.createObjectURL(blob);
-    const a=document.createElement('a'); a.href=url; a.download='lbm-watcher_'+new Date().toISOString().slice(0,10)+'.csv';
+    const a=document.createElement('a'); a.href=url; a.download=filename;
     document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     setStatus('CSV exported ('+DATA.length+' entries).');
   } catch(e){ setStatus('Export failed.'); }
@@ -845,6 +875,15 @@ function bind(){
   render();
   setStatus(had?'State loaded.':'Empty — import CSV or enter data manually.');
 })();
+
+// Service worker: cached app shell for offline use + faster startup.
+// Registered after page load so it doesn't block first paint.
+// Fails silently — the app must work without it.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW registration failed:', err));
+  });
+}
 </script>
 </body>
 </html>
