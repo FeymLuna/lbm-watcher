@@ -253,7 +253,15 @@
   @media (max-width: 700px) and (orientation: portrait) {
     #lbmTrendModal #lbmChartFull { display: none; }
     #lbmTrendModal .rotate-hint { display: flex; }
+    #weightTrendModal #chartFull { display: none; }
+    #weightTrendModal .rotate-hint { display: flex; }
   }
+
+  /* ===== Weight Trend fullscreen modal — same shape as LBM Trend ===== */
+  #weightTrendModal .modal-body { display: flex; align-items: stretch; justify-content: stretch; padding: 0; overflow: hidden; }
+  #weightTrendModal #chartFull { width: 100%; height: 100%; display: block; }
+  #weightTrendModal .rotate-hint { display: none; flex: 1; align-items: center; justify-content: center; text-align: center; color: var(--ink-dim); font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; padding: 24px; }
+  #weightTrendModal .rotate-hint .rotate-icon { font-size: 48px; margin-bottom: 16px; color: var(--accent); animation: rotateNudge 2.4s ease-in-out infinite; }
 
   /* Mobile: dashboard preview only shows body-comp essentials.
      Columns hidden on ≤560px: BF~ (4), Target Def. (8), Target In (9), Min. In (10), ✕ (11).
@@ -272,7 +280,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass - Watcher <span class="ver">v1.4.0</span></h1>
+    <h1>Lean Body Mass - Watcher <span class="ver">v1.5.0</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -355,9 +363,15 @@
     </div>
   </div>
 
-  <!-- Weight Trend -->
+  <!-- Weight Trend — tap/click the head to open fullscreen detail view -->
   <div class="panel" style="margin-bottom:16px;">
-    <div class="head"><h2>Weight Trend</h2><span class="sub" style="font-size:9px;color:var(--ink-faint);" id="goalInfo">Goal ≤12% BF</span></div>
+    <div class="head head-button" id="weightTrendHead" role="button" tabindex="0" aria-label="Open Weight Trend fullscreen view" aria-haspopup="dialog">
+      <h2>Weight Trend</h2>
+      <span class="head-right">
+        <span class="sub" style="font-size:9px;color:var(--ink-faint);" id="goalInfo">Goal ≤12% BF</span>
+        <span class="expand-icon" aria-hidden="true">⤢</span>
+      </span>
+    </div>
     <svg id="chart" viewBox="0 0 760 300" preserveAspectRatio="xMidYMid meet"></svg>
     <div class="legend">
       <span><i style="background:var(--real)"></i>Real (smoothed)</span>
@@ -415,6 +429,31 @@
       <input type="file" id="fileInput" accept=".csv,text/csv,text/plain,application/vnd.ms-excel" style="display:none;">
       <div class="bar"><button class="btn ghost" id="clearBtn">Clear storage</button></div>
       <div class="hint">Data lives locally in the browser (localStorage) — no login, no cloud. Export saves your full state as CSV; "Clear storage" irreversibly deletes all locally stored data. Export regularly.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================================
+     Weight Trend fullscreen modal — opens via the Weight Trend panel head.
+     Mirrors the LBM Trend modal: orientation lock attempt + rotate-hint
+     fallback on portrait phones where the lock is unsupported.
+     ==================================================================== -->
+<div class="modal" id="weightTrendModal" role="dialog" aria-modal="true" aria-labelledby="weightTrendModalTitle" hidden>
+  <div class="modal-backdrop" data-close="1"></div>
+  <div class="modal-sheet">
+    <header class="modal-head">
+      <button class="modal-back" id="weightTrendClose" type="button" aria-label="Back to dashboard"><span aria-hidden="true">←</span></button>
+      <h2 id="weightTrendModalTitle">Weight Trend</h2>
+      <span class="sub" id="weightTrendInfo">—</span>
+    </header>
+    <div class="modal-body">
+      <svg id="chartFull" viewBox="0 0 1280 640" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="rotate-hint" role="status" aria-live="polite">
+        <div>
+          <div class="rotate-icon" aria-hidden="true">⟳</div>
+          <div>Rotate device to landscape</div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -912,7 +951,8 @@ function render(){
   }
 
   renderTable();
-  renderChart();
+  renderChart();                          // dashboard tile (compact)
+  renderChart({ compact: false });        // fullscreen modal — kept in sync so opening is instant
   renderLbmChart();                       // dashboard tile (compact)
   renderLbmChart({ compact: false });     // fullscreen modal — kept in sync so opening is instant
 }
@@ -1055,67 +1095,217 @@ function lbmTrendKeyHandler(e){
   if(e.key === 'Escape'){ e.preventDefault(); closeLbmTrend(); }
 }
 
+// ----- Weight-Trend-Modal -----
+// Vollbild-Chart mit BMI-Schwellen, Today-Marker, Live-Stats-Header.
+// Selbe Fullscreen-/Orientation-Lock-Mechanik wie das LBM-Trend-Modal.
+function openWeightTrend(){
+  const m = document.getElementById('weightTrendModal');
+  if(!m) return;
+  m.hidden = false;
+  document.body.style.overflow = 'hidden';
+  tryLandscape();
+  renderChart({ compact: false });
+  setTimeout(() => { const c = document.getElementById('weightTrendClose'); if(c) c.focus(); }, 0);
+  document.addEventListener('keydown', weightTrendKeyHandler);
+}
+async function closeWeightTrend(){
+  const m = document.getElementById('weightTrendModal');
+  if(!m || m.hidden) return;
+  m.hidden = true;
+  document.body.style.overflow = '';
+  document.removeEventListener('keydown', weightTrendKeyHandler);
+  try {
+    if(screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+    if(document.fullscreenElement && document.exitFullscreen) await document.exitFullscreen();
+  } catch(e){}
+  const trigger = document.getElementById('weightTrendHead');
+  if(trigger) trigger.focus();
+}
+function weightTrendKeyHandler(e){
+  if(e.key === 'Escape'){ e.preventDefault(); closeWeightTrend(); }
+}
+
 function fmtD(iso){ const [y,m,d]=iso.split('-'); return d+'.'+m+'.'+y.slice(2); }
 
-function renderChart(){
-  const svg=document.getElementById('chart');
-  const W=760,H=300,padL=42,padR=14,padT=16,padB=28;
-  const reals=DATA.filter(d=>d.type==='real').map((d,i)=>({...d, sw:smooth(DATA.indexOf(d))}));
-  const proj=buildProjection();
-  // Korridor aus festen LBM-Verlust-Annahmen, konsistent mit dem LBM-Wächter:
-  // 10% = optimistisch (kürzere Strecke, höheres Endgewicht), 20% = pessimistisch (länger, tiefer).
-  // Das Band fächert zum Ziel hin auf — Unsicherheit über das Endgewicht wächst mit der Distanz.
-  const bandOpt=corridorBand(10);  // optimistisch
-  const bandPes=corridorBand(20);  // pessimistisch
-  const series=[...reals.map(d=>({x:d.date,y:d.sw||d.w})), ...proj.map(d=>({x:d.date,y:d.w}))];
-  if(series.length<2){ svg.innerHTML='<text x="380" y="150" fill="var(--axis)" text-anchor="middle" font-size="12">At least 2 real entries required</text>'; return; }
-  const dates=series.map(s=>+new Date(s.x));
-  const minX=Math.min(...dates), maxX=Math.max(...dates);
-  const ys=series.map(s=>s.y);
-  const goalW = proj.length? proj[proj.length-1].w : Math.min(...ys);
+// renderChart — zwei Render-Modi für den Weight-Trend-Chart:
+//   opts.compact = true  (default)  → Dashboard-Tile (760×300), schlank
+//   opts.compact = false             → Vollbild-Modul (1280×640), mit BMI-Schwellen (18.5/25/30),
+//                                       Today-Marker, mehr X-Labels, Projektions-End-Annotation,
+//                                       Live-Stats im Modal-Header
+function renderChart(opts){
+  opts = opts || {};
+  const compact = opts.compact !== false;
+  const svg = document.getElementById(compact ? 'chart' : 'chartFull');
+  if(!svg) return;
+  const $=id=>document.getElementById(id);
+
+  const W    = compact ? 760 : 1280;
+  const H    = compact ? 300 : 640;
+  const padL = compact ? 42  : 64;
+  const padR = compact ? 14  : 28;
+  const padT = compact ? 16  : 40;
+  const padB = compact ? 28  : 56;
+
+  const reals = DATA.filter(d=>d.type==='real').map((d,i)=>({...d, sw:smooth(DATA.indexOf(d))}));
+  const proj  = buildProjection();
+  // Korridor: 10% (optimistisch, kürzere Strecke) vs 20% (pessimistisch, länger).
+  const bandOpt = corridorBand(10);
+  const bandPes = corridorBand(20);
+  const series  = [...reals.map(d=>({x:d.date,y:d.sw||d.w})), ...proj.map(d=>({x:d.date,y:d.w}))];
+
+  if(series.length<2){
+    const cx = W/2, cy = H/2;
+    const fs = compact ? 12 : 18;
+    svg.innerHTML = `<text x="${cx}" y="${cy}" fill="var(--axis)" text-anchor="middle" font-size="${fs}">At least 2 real entries required</text>`;
+    if(!compact){ const i=$('weightTrendInfo'); if(i) i.textContent='—'; }
+    return;
+  }
+
+  const dates = series.map(s=>+new Date(s.x));
+  const minX  = Math.min(...dates), maxX = Math.max(...dates);
+  const ys    = series.map(s=>s.y);
+  const goalW = proj.length ? proj[proj.length-1].w : Math.min(...ys);
   ys.push(goalW);
-  const minY=Math.min(...ys)-0.5, maxY=Math.max(...ys)+0.5;
-  const sx=t=>padL+(t-minX)/(maxX-minX)*(W-padL-padR);
-  const sy=v=>padT+(maxY-v)/(maxY-minY)*(H-padT-padB);
-  const path=arr=>arr.map((p,i)=>(i?'L':'M')+sx(+new Date(p.x)).toFixed(1)+','+sy(p.y).toFixed(1)).join(' ');
+
+  // BMI-Schwellen — Vollbild only, wenn Höhe gesetzt. Konvention wie bei FFMI im LBM-Chart:
+  // jede Linie trägt die Farbe der Zone darüber (18.5 → good · 25 → warn · 30 → danger).
+  const heightM = (P.height && P.height > 0) ? P.height/100 : null;
+  const bmiLines = (!compact && heightM) ? [
+    { bmi: 18.5, color: 'var(--good)',   label: 'BMI 18.5' },
+    { bmi: 25,   color: 'var(--warn)',   label: 'BMI 25' },
+    { bmi: 30,   color: 'var(--danger)', label: 'BMI 30' },
+  ] : [];
+  if(!compact && heightM){
+    bmiLines.forEach(t => ys.push(t.bmi * heightM * heightM));
+  }
+
+  const minY = Math.min(...ys)-0.5, maxY = Math.max(...ys)+0.5;
+  const sx = t => padL + (t-minX)/((maxX-minX)||1) * (W-padL-padR);
+  const sy = v => padT + (maxY-v)/((maxY-minY)||1) * (H-padT-padB);
+  const path = arr => arr.map((p,i) => (i?'L':'M') + sx(+new Date(p.x)).toFixed(1) + ',' + sy(p.y).toFixed(1)).join(' ');
+
+  const fs = compact ? { y:12, label:11, x:12, ann:11 } : { y:16, label:14, x:14, ann:14 };
 
   let g='';
-  // grid + y labels
-  const steps=5;
-  for(let i=0;i<=steps;i++){
-    const v=minY+(maxY-minY)*i/steps; const yy=sy(v);
+  // Y-Grid + Labels
+  const ySteps = compact ? 5 : 6;
+  for(let i=0; i<=ySteps; i++){
+    const v=minY+(maxY-minY)*i/ySteps; const yy=sy(v);
     g+=`<line x1="${padL}" y1="${yy}" x2="${W-padR}" y2="${yy}" stroke="var(--grid)"/>`;
-    g+=`<text x="${padL-6}" y="${yy+3}" fill="var(--axis)" font-size="12" text-anchor="end">${v.toFixed(1)}</text>`;
+    g+=`<text x="${padL-8}" y="${yy+4}" fill="var(--axis)" font-size="${fs.y}" text-anchor="end">${v.toFixed(1)}</text>`;
   }
-  // goal line (errechnetes Zielgewicht bei Ziel-KFA)
-  const gy=sy(goalW);
-  g+=`<line x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}" stroke="var(--n400)" stroke-dasharray="4 4"/>`;
-  g+=`<text x="${W-padR}" y="${gy-4}" fill="var(--ink-dim)" font-size="12" text-anchor="end">${P.goalBf}% BF ≈ ${goalW.toFixed(1)} kg</text>`;
-  // corridor band (zwischen optimistisch 10% und pessimistisch 20%)
+
+  // Korridor-Band (zwischen 10%- und 20%-Szenario) — gefüllte Zone, nach hinten.
+  // [Bug-fix v1.4.1] vorher wurde p.y verwendet; corridorBand liefert aber .w, daher rendert
+  // das Band jetzt erst korrekt.
   if(bandOpt.length && bandPes.length){
-    const top=bandOpt.map(p=>`${sx(+new Date(p.date)).toFixed(1)},${sy(p.y).toFixed(1)}`);
-    const bot=bandPes.slice().reverse().map(p=>`${sx(+new Date(p.date)).toFixed(1)},${sy(p.y).toFixed(1)}`);
+    const top = bandOpt.map(p=>`${sx(+new Date(p.date)).toFixed(1)},${sy(p.w).toFixed(1)}`);
+    const bot = bandPes.slice().reverse().map(p=>`${sx(+new Date(p.date)).toFixed(1)},${sy(p.w).toFixed(1)}`);
     g+=`<polygon points="${top.concat(bot).join(' ')}" fill="var(--ink)" fill-opacity="0.06" stroke="none"/>`;
   }
-  // x labels (start, mid, end)
-  [series[0],series[Math.floor(series.length/2)],series[series.length-1]].forEach(s=>{
-    g+=`<text x="${sx(+new Date(s.x))}" y="${H-8}" fill="var(--axis)" font-size="12" text-anchor="middle">${fmtD(s.x)}</text>`;
-  });
-  // proj line
-  if(proj.length){
-    const projSeries=[{x:reals[reals.length-1].date,y:reals[reals.length-1].sw||reals[reals.length-1].w}, ...proj.map(d=>({x:d.date,y:d.w}))];
-    g+=`<path d="${path(projSeries)}" fill="none" stroke="var(--proj)" stroke-width="1.5" stroke-dasharray="3 3"/>`;
+
+  // Goal-Linie — errechnetes Zielgewicht bei Ziel-BF%
+  const gy = sy(goalW);
+  g+=`<line x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}" stroke="var(--n400)" stroke-dasharray="4 4"/>`;
+  g+=`<text x="${W-padR}" y="${gy-4}" fill="var(--ink-dim)" font-size="${fs.label}" text-anchor="end">${P.goalBf}% BF ≈ ${goalW.toFixed(1)} kg</text>`;
+
+  // BMI-Schwellen (Vollbild)
+  if(!compact && heightM){
+    bmiLines.forEach(t => {
+      const weightAt = t.bmi * heightM * heightM;
+      if(weightAt >= minY && weightAt <= maxY){
+        const y = sy(weightAt);
+        g+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="${t.color}" stroke-width="1" stroke-dasharray="6 4"/>`;
+        g+=`<text x="${padL+8}" y="${y-4}" fill="${t.color}" font-size="${fs.label}" text-anchor="start">${t.label} ≈ ${weightAt.toFixed(1)} kg</text>`;
+      }
+    });
   }
-  // real line
-  g+=`<path d="${path(reals.map(d=>({x:d.date,y:d.sw||d.w})))}" fill="none" stroke="var(--real)" stroke-width="2" stroke-linejoin="round"/>`;
-  // real dots (raw) to show noise vs trend
-  reals.forEach(d=>{ g+=`<circle cx="${sx(+new Date(d.date)).toFixed(1)}" cy="${sy(d.w).toFixed(1)}" r="1.8" fill="var(--n400)"/>`; });
-  // last real point — Fokus-Marker mit Glow
-  const lr=reals[reals.length-1];
-  const lx=sx(+new Date(lr.date)).toFixed(1), ly=sy(lr.sw||lr.w).toFixed(1);
-  g+=`<circle cx="${lx}" cy="${ly}" r="6" fill="var(--accent)" fill-opacity="0.18"/>`;
-  g+=`<circle cx="${lx}" cy="${ly}" r="3.5" fill="var(--accent)"/>`;
-  svg.innerHTML=g;
+
+  // Today-Marker — Vollbild
+  if(!compact && reals.length){
+    const todayX = sx(+new Date(reals[reals.length-1].date));
+    g+=`<line x1="${todayX.toFixed(1)}" y1="${padT}" x2="${todayX.toFixed(1)}" y2="${H-padB}" stroke="var(--ink-faint)" stroke-width="1" stroke-dasharray="2 4"/>`;
+    g+=`<text x="${todayX.toFixed(1)}" y="${padT-10}" fill="var(--ink-faint)" font-size="${fs.label}" text-anchor="middle" letter-spacing="2">TODAY</text>`;
+  }
+
+  // Projektions-Linie (gestrichelt grau)
+  if(proj.length){
+    const projSeries = [{x:reals[reals.length-1].date, y:reals[reals.length-1].sw||reals[reals.length-1].w}, ...proj.map(d=>({x:d.date,y:d.w}))];
+    g+=`<path d="${path(projSeries)}" fill="none" stroke="var(--proj)" stroke-width="${compact?1.5:2}" stroke-dasharray="${compact?'3 3':'5 5'}"/>`;
+  }
+
+  // Reale Linie (durchgezogen, geglättet)
+  g+=`<path d="${path(reals.map(d=>({x:d.date,y:d.sw||d.w})))}" fill="none" stroke="var(--real)" stroke-width="${compact?2:2.5}" stroke-linejoin="round"/>`;
+
+  // Raw-Dots (jede einzelne Messung — zeigt das Rauschen vs Trend)
+  reals.forEach(d => {
+    g+=`<circle cx="${sx(+new Date(d.date)).toFixed(1)}" cy="${sy(d.w).toFixed(1)}" r="${compact?1.8:2.4}" fill="var(--n400)"${compact?'':' opacity="0.7"'}/>`;
+  });
+
+  // Letzter realer Punkt — Fokus-Marker mit Glow
+  const lr = reals[reals.length-1];
+  const lx = sx(+new Date(lr.date)).toFixed(1), ly = sy(lr.sw||lr.w).toFixed(1);
+  g+=`<circle cx="${lx}" cy="${ly}" r="${compact?6:8}" fill="var(--accent)" fill-opacity="0.18"/>`;
+  g+=`<circle cx="${lx}" cy="${ly}" r="${compact?3.5:4.5}" fill="var(--accent)"/>`;
+
+  // Projektions-End-Marker (Vollbild)
+  if(!compact && proj.length){
+    const end = proj[proj.length-1];
+    const ex = sx(+new Date(end.date)).toFixed(1);
+    const ey = sy(end.w).toFixed(1);
+    g+=`<circle cx="${ex}" cy="${ey}" r="4" fill="var(--proj)"/>`;
+    g+=`<text x="${(parseFloat(ex)-8).toFixed(1)}" y="${(parseFloat(ey)-8).toFixed(1)}" fill="var(--ink-dim)" font-size="${fs.ann}" text-anchor="end">${end.w.toFixed(1)} kg @ ${fmtD(end.date)}</text>`;
+  }
+
+  // X-Achsen-Labels
+  const xLabels = compact
+    ? [series[0], series[Math.floor(series.length/2)], series[series.length-1]]
+    : (() => {
+        const n = 6;
+        const labels = [];
+        for(let i=0; i<n; i++){
+          const t = minX + (maxX - minX) * i / (n-1);
+          labels.push({ x: new Date(t).toISOString().slice(0,10) });
+        }
+        return labels;
+      })();
+  xLabels.forEach((s, i) => {
+    const anchor = compact ? 'middle' : (i===0 ? 'start' : (i===xLabels.length-1 ? 'end' : 'middle'));
+    const yPos = compact ? H-8 : H-padB+fs.x+6;
+    g+=`<text x="${sx(+new Date(s.x))}" y="${yPos}" fill="var(--axis)" font-size="${fs.x}" text-anchor="${anchor}">${fmtD(s.x)}</text>`;
+  });
+
+  svg.innerHTML = g;
+
+  // Vollbild-Modal-Header: Live-Stats — current weight · delta · trend · days to goal
+  if(!compact){
+    const info = $('weightTrendInfo');
+    if(info){
+      const parts = [];
+      const curW = lr.sw || lr.w;
+      if(curW) parts.push(`${curW.toFixed(2)} kg`);
+      if(reals.length >= 2){
+        const first = reals[0];
+        const delta = curW - (first.sw || first.w);
+        parts.push(`Δ ${delta>=0?'+':''}${delta.toFixed(2)} kg`);
+      }
+      if(reals.length >= 8){
+        const a = reals[reals.length-1].sw || reals[reals.length-1].w;
+        const b = reals[reals.length-8].sw || reals[reals.length-8].w;
+        if(a && b){
+          const d = a - b;
+          parts.push(`${d>=0?'+':''}${d.toFixed(2)} kg/wk`);
+        }
+      }
+      if(proj.length){
+        const endDate = new Date(proj[proj.length-1].date);
+        const today = new Date(); today.setHours(0,0,0,0);
+        const remDays = Math.max(0, Math.round((endDate-today)/86400000));
+        parts.push(`${remDays} d to goal`);
+      }
+      info.textContent = parts.join(' · ');
+    }
+  }
 }
 
 // renderLbmChart — zwei Render-Modi:
@@ -1451,6 +1641,21 @@ function bind(){
   const lbmTrendModal = document.getElementById('lbmTrendModal');
   if(lbmTrendModal){
     lbmTrendModal.addEventListener('click', e => { if(e.target.dataset && e.target.dataset.close) closeLbmTrend(); });
+  }
+
+  // Weight Trend tile → fullscreen modal. Same trigger pattern.
+  const weightTrendHead = document.getElementById('weightTrendHead');
+  if(weightTrendHead){
+    weightTrendHead.addEventListener('click', openWeightTrend);
+    weightTrendHead.addEventListener('keydown', e => {
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openWeightTrend(); }
+    });
+  }
+  const weightTrendClose = document.getElementById('weightTrendClose');
+  if(weightTrendClose) weightTrendClose.addEventListener('click', closeWeightTrend);
+  const weightTrendModal = document.getElementById('weightTrendModal');
+  if(weightTrendModal){
+    weightTrendModal.addEventListener('click', e => { if(e.target.dataset && e.target.dataset.close) closeWeightTrend(); });
   }
 }
 
