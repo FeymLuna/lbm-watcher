@@ -255,7 +255,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass - Watcher <span class="ver">v1.3.0</span></h1>
+    <h1>Lean Body Mass - Watcher <span class="ver">v1.3.1</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -591,15 +591,16 @@ function aggrStatus(agg){
 }
 
 // ---------- Realer LBM-Trend & FFMI-25-Decke ----------
-// Bündelt die Statistik der realen LBM-Reihe an einer Stelle, damit render() und
-// renderLbmChart() sich nicht doppeln.
-//   realFrac  = dLBM/dGewicht aus linearer Regression (Anteil des Verlusts, der LBM war)
-//   warmup    = true solange noch keine 21 Real-LBM-Messpunkte da sind (~3 Wochen)
-//   deltaLbm  = absoluter LBM-Unterschied seit Messbeginn (kg)
-//   totalLoss = bisheriger Gewichtsverlust (kg), positiv = Verlust
+// Bündelt die Statistik der realen LBM-Reihe an einer Stelle.
+//   realFrac      = dLBM/dGewicht aus OLS-Regression (Anteil des Verlusts, der LBM war)
+//   dailyLbmRate  = mittlere LBM-Änderung pro Tag (kg/Tag, positiv = Aufbau, negativ = Verlust)
+//                   ← das ist die Größe, die die Projektion zeit-basiert macht
+//   warmup        = true solange noch keine 21 Real-LBM-Messpunkte da sind (~3 Wochen)
+//   deltaLbm      = absoluter LBM-Unterschied seit Messbeginn (kg)
+//   totalLoss     = bisheriger Gewichtsverlust (kg), positiv = Verlust
 function realLbmStats(){
   const lbmS = realLbmSeries();
-  if(lbmS.length < 2) return { lbmS, warmup:true, realFrac:null, deltaLbm:null, totalLoss:null, startLbm:null, startW:null };
+  if(lbmS.length < 2) return { lbmS, warmup:true, realFrac:null, dailyLbmRate:null, daysSpan:null, deltaLbm:null, totalLoss:null, startLbm:null, startW:null };
   const wAt = date => {
     const idx = DATA.findIndex(d => d.date===date && d.type==='real');
     return idx >= 0 ? smooth(idx) : null;
@@ -610,7 +611,10 @@ function realLbmStats(){
   const endW      = wAt(lbmS[lbmS.length-1].date);
   const totalLoss = (startW != null && endW != null) ? startW - endW : null;
   const deltaLbm  = endLbm - startLbm;
-  // OLS-Steigung dLBM/dWeight aus allen Punkten mit bekanntem Gewicht.
+  // Zeitspanne in Tagen → tägliche LBM-Rate (positiv = Aufbau, negativ = Verlust).
+  const daysSpan = (new Date(lbmS[lbmS.length-1].date) - new Date(lbmS[0].date)) / 86400000;
+  const dailyLbmRate = daysSpan > 0 ? deltaLbm / daysSpan : null;
+  // OLS-Steigung dLBM/dWeight (Anteil-Maß, weiterhin gut für UI-Status/Verdict).
   let slope = null;
   const pts = lbmS.map(p => ({ x: wAt(p.date), y: p.lbm })).filter(p => p.x != null);
   if(pts.length >= 2){
@@ -623,93 +627,113 @@ function realLbmStats(){
   }
   return {
     lbmS, startLbm, startW, endLbm, endW,
-    totalLoss, deltaLbm,
+    totalLoss, deltaLbm, daysSpan, dailyLbmRate,
     realFrac: (slope != null && isFinite(slope)) ? slope : null,
     warmup: lbmS.length < 21,
   };
 }
 
-// Effektiver LBM-Verlust-Anteil für die Projektion.
-// Solange die Datenlage zu dünn ist (Einschwingphase <21 Real-LBM-Messungen): 15% default.
-// Sobald genug Daten + Gewichtsverlust > 0.5 kg: Live-Regression aus realLbmStats.
-// Geclampt auf [-0.5, 0.5] gegen Ausreißer; negative Werte erlauben Recomp-Projektion.
-const DEFAULT_LBM_LOSS_FRAC = 0.15;
-function effectiveLbmLossFrac(){
-  const s = realLbmStats();
-  if(s.warmup) return DEFAULT_LBM_LOSS_FRAC;
-  if(s.realFrac == null) return DEFAULT_LBM_LOSS_FRAC;
-  if(s.totalLoss == null || s.totalLoss < 0.5) return DEFAULT_LBM_LOSS_FRAC;
-  if(s.realFrac < -0.5) return -0.5;
-  if(s.realFrac >  0.5) return  0.5;
-  return s.realFrac;
-}
-
-// FFMI-25-Decke aus Körpergröße. Ohne Höhe → keine Decke (Infinity), Algorithmus
-// fällt dann auf das lineare Modell zurück.
+// FFMI-25-Decke aus Körpergröße. Ohne Höhe → keine Decke (Infinity), kein Smoothing-Eingriff.
 function maxLbmForHeight(){
   if(P.height == null || !isFinite(P.height) || P.height <= 0) return Infinity;
   const h = P.height / 100;
   return 25 * h * h;
 }
 
-// LBM-Projektion an einem beliebigen Tag der Cut-Projektion.
-// Modell: linear in lbmFrac, ABER asymptotische Sättigung gegen die FFMI-25-Decke wenn LBM
-// netto steigt (lbmFrac < 0 → Recomp / Bulk). Die Sättigung folgt einer Exponential-
-// Annäherung: actualGain = remaining · (1 − e^(−naiveGain/remaining)). Das ist physiologisch
-// korrekt — der Zuwachs verlangsamt sich kontinuierlich, ein harter Cut wäre unrealistisch.
-//   startLbm   – LBM zum Projektionsstart (kg)
-//   loss       – bisheriger Gewichtsverlust seit Start (kg; positiv = Verlust)
-//   lbmFrac    – Anteil des Verlusts, der LBM ist (negativ = LBM-Aufbau)
-//   maxLbm     – FFMI-25-Decke (kg), Infinity wenn unbekannt
-function projectLbmAt(startLbm, loss, lbmFrac, maxLbm){
-  const naive = startLbm - loss * lbmFrac;
-  // LBM-Verlust oder gleichbleibend: kein Cap nötig, lineare Strecke.
+// FFMI-25-Cap-Smoothing für eine naive LBM-Schätzung. Wenn LBM netto steigen würde,
+// nähert sich der tatsächliche Zuwachs asymptotisch der Decke:
+//   actualGain = remaining · (1 − e^(−naiveGain/remaining))
+// Physiologisch korrekt (Kouri et al., McMaster reviews — Annäherung statt harter Cut).
+function applyLbmCap(startLbm, naive, maxLbm){
   if(naive <= startLbm) return Math.max(0, naive);
-  // LBM-Aufbau: gegen die Decke smoothen.
-  if(!isFinite(maxLbm)) return naive;        // ohne Höhe keine Decke
+  if(!isFinite(maxLbm)) return naive;
   const remaining = maxLbm - startLbm;
-  if(remaining <= 0) return startLbm;         // schon am/über Cap
-  const naiveGain  = naive - startLbm;
-  const actualGain = remaining * (1 - Math.exp(-naiveGain / remaining));
-  return startLbm + actualGain;
+  if(remaining <= 0) return startLbm;
+  const naiveGain = naive - startLbm;
+  return startLbm + remaining * (1 - Math.exp(-naiveGain / remaining));
+}
+
+// Default-LBM-Anteil wenn noch keine realen Daten: empirisch skaliert mit Rate-of-Loss.
+// Faustregel aus der Sport-Science: ~15% LBM-Verlust pro 1% Körpergewicht/Woche Verlustrate.
+// Heuristik für Rate-of-Loss aus Defizit-Parametern:
+//   dW/Tag    = fat × Alpert × agg/100 / 7700
+//   rate%/Wo  = (dW/Tag × 7) / w × 100  ≈  bf% × agg × 0.000627
+// Daher: defaultLbmShare ≈ 0.15 × bf% × agg × 0.000627. Clamped [0, 0.30].
+// Konsequenz: kleineres agg → kleinerer Anteil → höheres Endgewicht (Bug-Fix v1.3.1).
+const DEFAULT_LBM_SHARE_PER_PCT_PER_WEEK = 0.15;
+function defaultLbmShareForCut(startBfPct, agg){
+  if(agg <= 0 || startBfPct == null || startBfPct <= 0) return 0;
+  const ratePctPerWeek = startBfPct * agg * 0.000627;
+  return Math.max(0, Math.min(0.30, DEFAULT_LBM_SHARE_PER_PCT_PER_WEEK * ratePctPerWeek));
 }
 
 // ---------- Projektion mit LBM-Korridor — Ziel ist KFA, nicht Gewicht ----------
 function buildProjection(){
   const reals = DATA.filter(d=>d.type==='real');
   if(reals.length<2) return [];
-  const lastIdx = DATA.map(d=>d.type).lastIndexOf('real');
-  const last = DATA[lastIdx];
-  const startW = smooth(lastIdx) || last.w;
-  const startBf = smoothBf(lastIdx) ?? lastKnownBf(lastIdx) ?? 25;
+  const lastIdx  = DATA.map(d=>d.type).lastIndexOf('real');
+  const last     = DATA[lastIdx];
+  const startW   = smooth(lastIdx) || last.w;
+  const startBf  = smoothBf(lastIdx) ?? lastKnownBf(lastIdx) ?? 25;
   const startLbm = startW*(1-startBf/100);
   const targetBf = P.goalBf;
-  const lbmFrac  = effectiveLbmLossFrac();   // dynamisch: Default 15% bis genug Daten, dann live
-  const maxLbm   = maxLbmForHeight();         // FFMI-25-Decke (Infinity ohne Höhe)
-  const out=[];
-  let w=startW;
+  const maxLbm   = maxLbmForHeight();   // FFMI-25-Cap, Infinity ohne Höhe
+
+  // --- Zwei-Modi-LBM-Modell (v1.3.1) ---
+  // Modus A — reale Trendlinie liegt vor: LBM-Änderung ist ZEIT-basiert (kg/Tag).
+  //           Mehr Tage bis Ziel ⇒ mehr LBM-Akkumulation (positiv oder negativ).
+  //           Bei kleinerem agg dauert es länger ⇒ Endgewicht ändert sich entsprechend.
+  // Modus B — zu wenig Daten (Warm-up): LBM-Anteil skaliert mit der Rate-of-Loss,
+  //           statt eine starre 15%-Konstante zu nehmen. So bricht das Endgewicht aus
+  //           der agg-Unabhängigkeit heraus.
+  const stats         = realLbmStats();
+  const haveRealTrend = !stats.warmup && stats.dailyLbmRate != null
+                        && stats.totalLoss != null && stats.totalLoss > 0.5;
+  // Modus A: Tages-Rate aus Regression, gegen Ausreißer geclampt (±0.1 kg/Tag).
+  const realDailyRate = haveRealTrend
+    ? Math.max(-0.1, Math.min(0.1, stats.dailyLbmRate))
+    : null;
+  // Modus B: Anteil aus Rate-of-Loss-Skalierung. Wird einmal beim Start fixiert
+  // (nutzt startBf und P.agg) — eine ausreichend gute Approximation für den Default.
+  const defaultShare  = defaultLbmShareForCut(startBf, P.agg);
+
+  // Liefert die LBM zum Tag `day` mit kumuliertem Gewichtsverlust `loss`.
+  const lbmAt = (day, loss) => {
+    const naive = haveRealTrend
+      ? startLbm + day * realDailyRate         // zeit-basiert
+      : startLbm - loss * defaultShare;        // anteil-basiert (Rate-of-Loss-skaliert)
+    return applyLbmCap(startLbm, naive, maxLbm);
+  };
+
+  const out = [];
+  let w = startW;
   const startDate = new Date(last.date);
-  let day=0;
-  while(day<600){
+  let day = 0;
+  while(day < 600){
     const lossSoFar = startW - w;
-    const lbmNow = projectLbmAt(startLbm, lossSoFar, lbmFrac, maxLbm);
-    const fatNow = w - lbmNow;
-    const bfNow  = (fatNow/w)*100;
-    if(bfNow<=targetBf) break;
-    const alpertNow = fatNow*P.alpert;
-    const targetNow = alpertNow*(P.agg/100);
-    if(targetNow <= 0) break;                  // Aggressivität 0 → kein Defizit → kein Fortschritt
+    const lbmNow    = lbmAt(day, lossSoFar);
+    const fatNow    = w - lbmNow;
+    const bfNow     = (fatNow/w)*100;
+    if(bfNow <= targetBf) break;
+    const targetNow = fatNow * P.alpert * (P.agg/100);
+    if(targetNow <= 0) break;                  // agg=0 → kein Defizit → keine Projektion
     const dW = targetNow/7700;
     w -= dW;
-    if(w<50) break;
+    if(w < 50) break;
     day++;
     const lossNew = startW - w;
-    const lbmNew = projectLbmAt(startLbm, lossNew, lbmFrac, maxLbm);
-    const fatNew = w - lbmNew;
-    const bfProj = (fatNew/w)*100;
-    const d=new Date(startDate); d.setDate(d.getDate()+day);
-    out.push({date:d.toISOString().slice(0,10), w:+w.toFixed(2), bf:+bfProj.toFixed(1), type:'proj',
-      lbm:+lbmNew.toFixed(2), fat:+fatNew.toFixed(2)});
+    const lbmNew  = lbmAt(day, lossNew);
+    const fatNew  = w - lbmNew;
+    const bfProj  = (fatNew/w)*100;
+    const d = new Date(startDate); d.setDate(d.getDate()+day);
+    out.push({
+      date: d.toISOString().slice(0,10),
+      w:    +w.toFixed(2),
+      bf:   +bfProj.toFixed(1),
+      type: 'proj',
+      lbm:  +lbmNew.toFixed(2),
+      fat:  +fatNew.toFixed(2),
+    });
   }
   return out;
 }
