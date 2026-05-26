@@ -61,7 +61,8 @@
   .eta .blk { text-align:right; }
   .eta .blk .lbl { font-size:9px; letter-spacing:0.2em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:3px; }
   .eta .blk .num { font-size:18px; font-weight:700; letter-spacing:0.02em; color:var(--ink); }
-  .eta .blk.primary .num { color: var(--accent); }
+  /* ETA primary number stays white — yellow is reserved for interactive surfaces.
+     Marker class kept on the block for layout/structural use, just no color override. */
 
   /* Headline metrics */
   .focus { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 16px; }
@@ -241,7 +242,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass - Watcher <span class="ver">v1.2.0</span></h1>
+    <h1>Lean Body Mass - Watcher <span class="ver">v1.2.1</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -258,9 +259,11 @@
     </div>
   </div>
 
-  <!-- HEADLINE: target deficit + minimum intake -->
+  <!-- HEADLINE: target deficit + intake + minimum intake.
+       Yellow bar (.key) marks cards that will become interactive surfaces; red bar
+       (.alert) marks an absolute safety threshold. -->
   <div class="focus">
-    <div class="card">
+    <div class="card key">
       <div class="label">Target deficit · today</div>
       <div><span class="val" id="fTarget">—</span><span class="unit">kcal/day</span></div>
       <div class="note" id="fTargetNote">— % of Alpert limit</div>
@@ -271,7 +274,7 @@
       <div class="note" id="fIntakeNote">TDEE − target deficit</div>
     </div>
     <div class="card alert">
-      <div class="label">Minimum intake · floor</div>
+      <div class="label">Minimum intake · today</div>
       <div><span class="val" id="fMin">—</span><span class="unit">kcal</span></div>
       <div class="note" id="fMinNote">below this value → LBM risk</div>
     </div>
@@ -606,7 +609,7 @@ function render(){
   const $=id=>document.getElementById(id);
   if(r && r.target!=null){
     $('fTarget').textContent = Math.round(r.target);
-    $('fTargetNote').textContent = P.agg+'% des Alpert-Limits ('+Math.round(r.alpertLimit)+' kcal)';
+    $('fTargetNote').textContent = P.agg+'% of Alpert limit ('+Math.round(r.alpertLimit)+' kcal)';
     if(P.tdee!=null){
       $('fIntake').textContent = Math.round(P.tdee - r.target);
       $('fIntakeNote').textContent = 'TDEE '+P.tdee+' − '+Math.round(r.target)+' deficit';
