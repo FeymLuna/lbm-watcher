@@ -349,12 +349,12 @@
   .input-btn-row .btn   { flex: 1; }
   .btn-accent { background: var(--accent); color: #0b0c08; border-color: var(--accent); font-size: 10px; letter-spacing: 0.12em; white-space: nowrap; padding: 0 8px; }
   .btn-accent:hover { background: #d4de3a; border-color: #d4de3a; }
-  .field-row-toggle { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 16px; }
-  .field-row-toggle > .field { flex: 1; margin-bottom: 0; }
-  .height-unit-toggle { flex: 1; padding-bottom: 1px; }
-  .height-unit-toggle .unit-btn { flex: 1; }
-  .sex-toggle { width: 100%; }
-  .sex-toggle .unit-btn { flex: 1; padding-top: 10px; padding-bottom: 10px; }
+  .height-row { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 16px; }
+  .height-row > .field { flex: 2; margin-bottom: 0; }
+  .height-ft-pair { flex: 2; display: flex; gap: 8px; }
+  .height-ft-pair > .field { flex: 1; margin-bottom: 0; }
+  .height-unit-toggle { flex: 2; display: flex; gap: 4px; }
+  .height-unit-toggle .unit-btn { flex: 1; padding: 10px 4px; }
   .params-peek .pcell-btn { display: flex; align-items: center; justify-content: center; padding: 10px 12px; }
   .btn-calc-tdee { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; padding: 8px 12px; border-radius: var(--r); border: 1.5px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background var(--dur) var(--ease), color var(--dur) var(--ease); width: 100%; }
   .btn-calc-tdee:hover { background: var(--accent); color: #0b0c08; }
@@ -645,7 +645,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.7</span></h1>
+    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.8</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -895,32 +895,20 @@
           <p class="params-desc">Your target body-fat percentage. The projection engine steps weight and LBM forward day by day under the Alpert-based deficit until this threshold is crossed — the resulting date and final body weight appear as the cut endpoint on both charts.</p>
         </div>
 
-        <!-- Personal — biometric inputs for the TDEE calculator -->
+        <!-- Personal — height + activity level for FFMI and TDEE -->
         <div class="params-section">
           <div class="params-section-head">
             <h3>Personal</h3>
           </div>
-          <div class="field-row-toggle">
+          <div class="height-row">
             <div id="heightCmField" class="field"><label>Height (cm)</label><input type="text" inputmode="decimal" id="iHeight" placeholder="e.g. 175"></div>
-            <div class="unit-toggle height-unit-toggle">
-              <button class="unit-btn active" id="unitCmBtn" type="button">cm</button>
-              <button class="unit-btn" id="unitFtBtn" type="button">ft · in</button>
-            </div>
-          </div>
-          <div id="heightFtField" style="display:none;">
-            <div class="row2">
+            <div id="heightFtField" class="height-ft-pair" style="display:none;">
               <div class="field"><label>Feet</label><input type="text" inputmode="numeric" id="iFt" placeholder="5"></div>
               <div class="field"><label>Inches</label><input type="text" inputmode="decimal" id="iIn" placeholder="9.0"></div>
             </div>
-          </div>
-          <div class="row2">
-            <div class="field"><label>Age (years)</label><input type="text" inputmode="numeric" id="iAge" placeholder="e.g. 30"></div>
-            <div class="field">
-              <label>Sex</label>
-              <div class="unit-toggle sex-toggle">
-                <button class="unit-btn active" id="iSexMale" type="button">Male</button>
-                <button class="unit-btn" id="iSexFemale" type="button">Female</button>
-              </div>
+            <div class="unit-toggle height-unit-toggle">
+              <button class="unit-btn active" id="unitCmBtn" type="button">cm</button>
+              <button class="unit-btn" id="unitFtBtn" type="button">ft · in</button>
             </div>
           </div>
           <div class="field">
@@ -933,7 +921,7 @@
               <option value="1.90">1.90 · Very active — daily training</option>
             </select>
           </div>
-          <p class="params-desc">Used for BMI, FFMI and TDEE calculation. FFMI 25 marks the natural upper bound (Kouri et al., 1995) — the projection caps at this limit.</p>
+          <p class="params-desc">Height is used for BMI and FFMI. FFMI 25 marks the natural upper bound (Kouri et al., 1995). Activity level scales BMR to full TDEE.</p>
         </div>
 
         <!-- TDEE -->
@@ -949,15 +937,16 @@
               <button class="btn btn-accent" id="calcTdeeBtn" type="button">Calculate TDEE</button>
             </div>
           </div>
-          <p class="params-desc">Total calories burned on an average day including all activity. Enter manually or use Calculate TDEE — applies Mifflin-St Jeor to today's smoothed weight using the Personal parameters above.</p>
+          <p class="params-desc">Total calories burned on an average day including all activity. Enter manually or use Calculate TDEE — applies Katch-McArdle to today's smoothed LBM, which is more accurate than weight-only formulas for people tracking body composition.</p>
           <div class="params-example">How to estimate your TDEE
 ──────────────────────────
 
-TDEE = BMR × AF
+TDEE = BMR × AF  (Katch-McArdle)
 
-BMR (Mifflin-St Jeor)
-  male   = 10×kg + 6.25×cm − 5×age + 5
-  female = 10×kg + 6.25×cm − 5×age − 161
+BMR = 370 + 21.6 × LBM
+
+LBM (Lean Body Mass)
+  LBM = weight × (1 − BF% ÷ 100)
 
 Activity Factor (AF)
   1.20  Sedentary   (no exercise)
@@ -966,11 +955,11 @@ Activity Factor (AF)
   1.72  Active      (5–6 / week)
   1.90  Very active (daily)
 
-Example — 80 kg · 175 cm · 30 y · male
-  BMR  = 10×80 + 6.25×175 − 5×30 + 5
-       = 1 749 kcal
-  AF   = 1.37 (light)
-  TDEE = 1 749 × 1.37 = 2 396 kcal</div>
+Example — 80 kg · 20% BF · light
+  LBM  = 80 × (1 − 0.20) = 64.0 kg
+  BMR  = 370 + 21.6 × 64  = 1 752 kcal
+  AF   = 1.37
+  TDEE = 1 752 × 1.37     = 2 400 kcal</div>
         </div>
 
       </div>
@@ -1031,7 +1020,7 @@ const STORE_KEY = 'telemetrie_v1';
 let DATA = [];   // {date:'YYYY-MM-DD', w:Number, bf:Number|null, type:'real'|'proj'}
 // Physiological constant — never user-configurable (Alpert, 2005).
 const ALPERT = 69;  // kcal / kg fat / day
-let P = { agg:55, tdee:null, height:null, goalBf:15, age:null, sex:1, actFactor:1.37 };
+let P = { agg:55, tdee:null, height:null, goalBf:15, actFactor:1.37 };
 
 // ---------- Persistenz (localStorage — funktioniert auf GitHub Pages, kein Login/Cloud) ----------
 function save(){
@@ -1654,7 +1643,7 @@ function initHeightToggle(){
   }
   function showFt(){
     cmField.style.display = 'none';
-    ftField.style.display = '';
+    ftField.style.display = 'flex';   // height-ft-pair is a flex container
     cmBtn.classList.remove('active');
     ftBtn.classList.add('active');
     const cm = parseFloat(iHeight.value);
@@ -1677,14 +1666,18 @@ function initHeightToggle(){
   iIn.oninput   = ftInToCm;
 }
 function doCalcTdee(){
+  // Katch-McArdle: BMR = 370 + 21.6 × LBM
+  // Uses smoothed weight + smoothed BF% from the latest real entry.
+  // More accurate than Mifflin-St Jeor for people tracking body composition.
   if(!_ewmaCache) rebuildEwma();
-  const reals = DATA.filter(d => d.type === 'real');
-  if(!reals.length || !P.height || !P.age){
-    openParams(); // open modal so user can fill in missing fields
-    return false;
-  }
-  const sw     = _ewmaCache?.get(reals[reals.length-1].date) ?? reals[reals.length-1].w;
-  const bmr    = Math.round(10*sw + 6.25*P.height - 5*P.age + (P.sex === 1 ? 5 : -161));
+  let headIdx = -1;
+  for(let i = DATA.length-1; i >= 0; i--){ if(DATA[i]?.type === 'real'){ headIdx = i; break; } }
+  if(headIdx < 0) return false;                   // no data yet
+  const sw  = smooth(headIdx) ?? DATA[headIdx].w;
+  const sbf = smoothBf(headIdx);
+  if(sbf == null) return false;                   // no BF data — enter TDEE manually
+  const lbm    = sw * (1 - sbf / 100);
+  const bmr    = Math.round(370 + 21.6 * lbm);
   const factor = P.actFactor || 1.37;
   const tdee   = Math.round(bmr * factor);
   const iTdee  = document.getElementById('iTdee');
@@ -2501,7 +2494,7 @@ function flashChangedValues(oldVals){
 function buildCSV(){
   const rows=[['date','weight','bodyfat']];
   DATA.forEach(d=>rows.push([d.date,d.w,d.bf??'']));
-  rows.push(['#params','agg='+P.agg,'tdee='+P.tdee+';height='+P.height+';goalBf='+P.goalBf+';age='+P.age+';sex='+P.sex+';actFactor='+P.actFactor]);
+  rows.push(['#params','agg='+P.agg,'tdee='+P.tdee+';height='+P.height+';goalBf='+P.goalBf+';actFactor='+P.actFactor]);
   return rows.map(r=>r.join(',')).join('\n');
 }
 async function exportCSV(){
@@ -2540,8 +2533,6 @@ function importCSV(text){
       if(g('tdee')      !=null) P.tdee      = g('tdee');
       if(g('height')    !=null) P.height    = g('height');
       if(g('goalBf')    !=null) P.goalBf    = g('goalBf', true);
-      if(g('age')       !=null) P.age       = g('age');
-      if(g('sex')       !=null) P.sex       = g('sex');
       if(g('actFactor') !=null) P.actFactor = g('actFactor', true);
       continue;
     }
@@ -2558,14 +2549,6 @@ function syncParamInputs(){
   document.getElementById('goalBfVal').textContent = (+P.goalBf).toFixed(1)+'%';
   document.getElementById('iTdee').value    = P.tdee   ?? '';
   document.getElementById('iHeight').value  = P.height ?? '';
-  const iAge = document.getElementById('iAge');
-  if(iAge) iAge.value = P.age ?? '';
-  const mBtn = document.getElementById('iSexMale');
-  const fBtn = document.getElementById('iSexFemale');
-  if(mBtn && fBtn){
-    mBtn.classList.toggle('active', P.sex === 1);
-    fBtn.classList.toggle('active', P.sex === 0);
-  }
   const iAct = document.getElementById('iActFactor');
   if(iAct) iAct.value = P.actFactor ?? 1.37;
   updateParamsPreview();
@@ -2601,17 +2584,11 @@ function bind(){
   ['iTdee:tdee','iHeight:height'].forEach(p=>{
     const [id,key]=p.split(':'); document.getElementById(id).oninput=()=>{ const v=document.getElementById(id).value; P[key]=v===''?null:+v; save(); render(); };
   });
-  const iAge = document.getElementById('iAge');
-  if(iAge) iAge.oninput = () => { const v=iAge.value; P.age=v===''?null:+v; save(); render(); };
-  const iSexM = document.getElementById('iSexMale');
-  const iSexF = document.getElementById('iSexFemale');
-  if(iSexM) iSexM.onclick = () => { P.sex=1; iSexM.classList.add('active'); if(iSexF) iSexF.classList.remove('active'); save(); render(); };
-  if(iSexF) iSexF.onclick = () => { P.sex=0; iSexF.classList.add('active'); if(iSexM) iSexM.classList.remove('active'); save(); render(); };
   const iAct = document.getElementById('iActFactor');
   if(iAct) iAct.onchange = () => { P.actFactor=parseFloat(iAct.value); save(); render(); };
   const dashCalcBtn = document.getElementById('dashCalcTdee');
   if(dashCalcBtn) dashCalcBtn.onclick = () => doCalcTdee();
-  ['iWeight','iBf','iTdee','iHeight','iAge'].forEach(id=>{
+  ['iWeight','iBf','iTdee','iHeight'].forEach(id=>{
     const el = document.getElementById(id); if(!el) return;
     el.addEventListener('input',function(){ const v=this.value.replace(/,/g,'.'); if(v!==this.value) this.value=v; });
   });
