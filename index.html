@@ -655,7 +655,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.12</span></h1>
+    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.13</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -1466,12 +1466,14 @@ function render(){
   $('sFfmi').textContent = (r&&r.ffmi)?r.ffmi.toFixed(2):'—';
 
   // Weight delta since first entry — shown in the Weight Trend sub-header (dashboard).
-  if(reals.length >= 2){
+  if(reals.length >= 2 && sW != null){
     const firstW = smooth(DATA.indexOf(reals[0])) ?? reals[0].w;
-    const wDelta = (sW ?? 0) - firstW;
-    $('goalInfo').textContent = `Δ W ${wDelta>=0?'+':''}${wDelta.toFixed(2)} kg`;
+    const wDelta = sW - firstW;
+    const gi = $('goalInfo');
+    gi.textContent = `Δ W ${wDelta>=0?'+':''}${wDelta.toFixed(2)} kg`;
+    gi.style.color  = wDelta < -0.05 ? 'var(--good)' : wDelta > 0.05 ? 'var(--danger)' : 'var(--ink-faint)';
   } else {
-    $('goalInfo').textContent = '—';
+    const gi = $('goalInfo'); gi.textContent = '—'; gi.style.color = 'var(--ink-faint)';
   }
 
   // Health-status coloring on the stripe — drives the .good/.warn/.danger classes via CSS.
@@ -2275,11 +2277,10 @@ function renderLbmChart(opts){
     ...(compact ? [] : [...band10.map(p=>p.lbm), ...band20.map(p=>p.lbm)]),
   ];
   if(!compact && heightM){
+    // Vollbild: FFMI-Schwellen in die Skala einbeziehen (Lesehilfe)
     ffmiLines.forEach(t => allLbm.push(t.ffmi * heightM * heightM));
-  } else if(haveCap && projLbm.length){
-    const projMax = Math.max(...projLbm.map(p=>p.lbm));
-    if(projMax > startLbm * 0.98) allLbm.push(maxLbm);
   }
+  // Compact: kein FFMI-Cap in der Skala — würde die Y-Achse auf ~77 kg aufblasen
 
   const dates = allDates.map(d => +new Date(d));
   const minX  = Math.min(...dates), maxX = Math.max(...dates);
@@ -2321,8 +2322,8 @@ function renderLbmChart(opts){
     const midIdx20 = Math.floor(band20.length / 2);
     const mid10 = band10[midIdx10];
     const mid20 = band20[midIdx20];
-    g+=`<text x="${sx(+new Date(mid10.date)).toFixed(1)}" y="${(sy(mid10.lbm)-3).toFixed(1)}" fill="var(--ink-dim)" font-size="${fs.label}" text-anchor="middle">10% · good</text>`;
-    g+=`<text x="${sx(+new Date(mid20.date)).toFixed(1)}" y="${(sy(mid20.lbm)+fs.label+1).toFixed(1)}" fill="var(--ink-dim)" font-size="${fs.label}" text-anchor="middle">20% · risk</text>`;
+    g+=`<text x="${sx(+new Date(mid10.date)).toFixed(1)}" y="${(sy(mid10.lbm)-3).toFixed(1)}" fill="var(--good)" fill-opacity="0.55" font-size="${fs.label}" text-anchor="middle">–10% · target</text>`;
+    g+=`<text x="${sx(+new Date(mid20.date)).toFixed(1)}" y="${(sy(mid20.lbm)+fs.label+1).toFixed(1)}" fill="var(--danger)" fill-opacity="0.55" font-size="${fs.label}" text-anchor="middle">–20% · limit</text>`;
   }
 
   // FFMI-Schwellen (Vollbild only — Dashboard-Tile bleibt schlank)
@@ -2430,14 +2431,18 @@ function renderLbmChart(opts){
     ? `Δ LBM ${realLbmDelta>=0?'+':''}${realLbmDelta.toFixed(2)} kg`
     : '—';
 
+  // Color the compact sub-header using the same three-zone logic as the verdict
+  const lbmInfoColors = { 'good': 'var(--good)', 'warn': 'var(--warn)', 'danger': 'var(--danger)', '': 'var(--ink-faint)' };
   if(compact){
-    $('lbmGuardInfo').textContent = headerText;
+    const gi = $('lbmGuardInfo');
+    gi.textContent = headerText;
+    gi.style.color = lbmInfoColors[lbmLossStatus(realFrac, stats.warmup)];
     const v = $('lbmVerdict');
     if(stats.warmup){ v.textContent='⚠ Settling phase — not yet interpretable'; v.style.color='var(--ink-faint)'; }
-    else if(totalLoss==null || totalLoss<=0.5 || realFrac==null){ v.textContent='Too little weight loss for a stable verdict'; v.style.color='var(--ink-faint)'; }
-    else if(realFrac>0.20){ v.textContent='⚠ LBM share above 20% — ease deficit, prioritize protein'; v.style.color='var(--danger)'; }
-    else if(realFrac>=0.10){ v.textContent='● LBM share within planning band (10–20%)'; v.style.color='var(--warn)'; }
-    else { v.textContent='✓ LBM share below 10% — better than planned'; v.style.color='var(--good)'; }
+    else if(totalLoss==null || totalLoss<=0.5 || realFrac==null){ v.textContent='Too little data for a verdict'; v.style.color='var(--ink-faint)'; }
+    else if(realFrac>0.20){ v.textContent='⚠ LBM loss > 20% — ease deficit, add protein'; v.style.color='var(--danger)'; }
+    else if(realFrac>=0.10){ v.textContent='● LBM loss within band (10–20%)'; v.style.color='var(--warn)'; }
+    else { v.textContent='✓ LBM loss < 10% — on track'; v.style.color='var(--good)'; }
   } else {
     const i = $('lbmTrendInfo'); if(i) i.textContent = headerText;
   }
