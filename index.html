@@ -13,6 +13,7 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
+    color-scheme: dark;
     /* Neutralskala — durchgehend, dunkel→hell */
     --n900: #08090b;   /* base bg */
     --n850: #0e0f12;
@@ -108,11 +109,11 @@
   /* Inputs */
   .field { margin-bottom: 12px; }
   .field label { display:block; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 5px; }
-  .field input { width: 100%; background: var(--n900); border: 1px solid var(--line-2); border-radius: 5px; color: var(--ink); font-family: var(--mono); font-size: 15px; padding: 10px 12px; outline: none; transition: border-color .15s, box-shadow .15s; font-variant-numeric: tabular-nums; }
+  .field input { width: 100%; background: var(--n900); border: 1px solid var(--line-2); border-radius: var(--r); color: var(--ink); font-family: var(--mono); font-size: 15px; padding: 10px 12px; outline: none; transition: border-color .15s, box-shadow .15s; font-variant-numeric: tabular-nums; }
   .field input::placeholder { color: var(--n400); }
   .field input:focus { border-color: var(--accent-dim); box-shadow: 0 0 0 3px rgba(234,242,77,0.08); }
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .btn { width: 100%; background: var(--accent); color: #0b0c08; border: none; border-radius: 5px; font-family: var(--mono); font-size: 11px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; padding: 12px; cursor: pointer; transition: filter .15s, transform .05s; }
+  .btn { width: 100%; background: var(--accent); color: #0b0c08; border: none; border-radius: var(--r); font-family: var(--mono); font-size: 11px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; padding: 12px; cursor: pointer; transition: filter .15s, transform .05s; }
   .btn:hover { filter: brightness(1.08); }
   .btn:active { transform: translateY(1px); }
   .btn.danger { background: var(--danger); color: #0b0c08; }
@@ -127,8 +128,9 @@
 
   .slider-wrap { margin: 6px 0 2px; }
   .slider-wrap .topline { display:flex; justify-content:space-between; align-items:baseline; font-size: 9px; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink-dim); margin-bottom:0px;}
-  /* Negative margin trims invisible touch padding from layout without shrinking the hit area */
-  .slider-wrap input[type=range] { margin-top:-10px; margin-bottom:-10px; }
+  /* Hint sits above the slider — positive top margin keeps it from being overlapped by
+     the 40px touch area. Negative bottom margin still collapses the space below the track. */
+  .slider-wrap input[type=range] { margin-top:4px; margin-bottom:-10px; }
   .slider-wrap .topline b { color: var(--accent); font-size: 13px; font-weight: 700; }
   /* Range slider — 40px touch-target, 3px visual track.
      touch-action:pan-y lets the browser scroll vertically while JS captures horizontal drag.
@@ -155,7 +157,10 @@
   .hint { font-size: 9.5px; color: var(--ink-faint); letter-spacing: 0.03em; margin-top: 8px; line-height: 1.65; }
   .bar { display:flex; gap:8px; margin-top: 10px; }
   .bar .btn { width: auto; flex: 1; }
-  .statusmsg { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-dim); padding: 8px 16px; min-height: 28px; }
+  .statusmsg { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-dim); padding: 8px 16px; min-height: 0; }
+  .statusmsg:empty { padding: 0; }
+  .statusmsg + .body { padding-top: 0; }
+  .statusmsg:empty + .body { padding-top: 16px; }
   /* ===== Responsive ===== */
   /* Tablet: rechte Spalte unter den Hauptbereich */
   @media (max-width: 880px) {
@@ -240,7 +245,7 @@
   .modal-head h2 { font-size: 14px; font-weight: 800; letter-spacing: 0.28em; text-transform: uppercase; position: relative; padding-left: 14px; }
   .modal-head h2::before { content:''; position:absolute; left:0; top:50%; transform:translateY(-50%); width:4px; height:18px; background: var(--accent); }
   .modal-head .sub { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; font-family: var(--mono); }
-  .modal-back { width: 38px; height: 38px; background: transparent; border: 1px solid var(--line-2); color: var(--ink-dim); border-radius: 5px; font-family: var(--mono); font-size: 18px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: color .15s ease, border-color .15s ease, background .15s ease; flex-shrink: 0; }
+  .modal-back { width: 38px; height: 38px; background: transparent; border: 1px solid var(--line-2); color: var(--ink-dim); border-radius: var(--r); font-family: var(--mono); font-size: 18px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: color .15s ease, border-color .15s ease, background .15s ease; flex-shrink: 0; }
   .modal-back:hover { color: var(--ink); border-color: var(--n400); background: var(--panel-2); }
   .modal-back:focus-visible { outline: 2px solid var(--accent-dim); outline-offset: 2px; }
   .modal-body { flex: 1; overflow: auto; padding: 0; -webkit-overflow-scrolling: touch; }
@@ -287,6 +292,31 @@
   #weightTrendModal .rotate-hint { display: none; flex: 1; align-items: center; justify-content: center; text-align: center; color: var(--ink-dim); font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; padding: 24px; }
   #weightTrendModal .rotate-hint .rotate-icon { font-size: 48px; margin-bottom: 16px; color: var(--accent); animation: rotateNudge 2.4s ease-in-out infinite; }
 
+  /* Chart modals: header overlays the chart as a gradient fade.
+     Maximises chart real-estate + fixes mobile crosshair drift caused by the header
+     shrinking the SVG viewport and creating letterbox coordinate offsets. */
+  #lbmTrendModal .modal-head,
+  #weightTrendModal .modal-head {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    z-index: 10;
+    background: linear-gradient(180deg, rgba(8,9,11,0.90) 0%, rgba(8,9,11,0.45) 55%, transparent 100%);
+    border-bottom: none;
+    padding-bottom: 28px;
+    transition: opacity var(--dur-slow) var(--ease);
+  }
+  #lbmTrendModal .modal-body,
+  #weightTrendModal .modal-body {
+    position: absolute;
+    inset: 0;
+  }
+  /* chart-dim: header fades after inactivity; any touch brings it back */
+  #lbmTrendModal .modal-head.chart-dim,
+  #weightTrendModal .modal-head.chart-dim {
+    opacity: 0;
+    pointer-events: none;
+  }
+
   /* Mobile: dashboard preview only shows body-comp essentials.
      Columns hidden on ≤560px: BF~ (4), Target Def. (8), Target In (9), Min. In (10), ✕ (11).
      Kept: Date, Wt., BF%, LBM, FFMI, BMI.
@@ -317,6 +347,14 @@
     --dur-fast:  120ms;
     --dur:       180ms;
     --dur-slow:  260ms;
+  }
+
+  /* Ambient background — dot-grid texture + accent top-glow */
+  body {
+    background-image:
+      radial-gradient(ellipse 90% 35% at 50% 0%, rgba(234,242,77,0.05) 0%, transparent 65%),
+      radial-gradient(circle, rgba(255,255,255,0.032) 1px, transparent 1px);
+    background-size: auto, 24px 24px;
   }
 
   /* Text selection — accent-colored, premium signature */
@@ -350,7 +388,9 @@
     background: linear-gradient(180deg, rgba(255,255,255,0.025), transparent 50%);
     pointer-events: none; border-radius: inherit;
   }
-  .focus .card:hover { border-color: var(--n500); }
+  .focus .card:hover { border-color: var(--n500); transform: translateY(-2px); }
+  .focus .card.key:hover   { box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 8px 28px rgba(234,242,77,0.08); }
+  .focus .card.alert:hover { box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 8px 28px rgba(242,115,77,0.08); }
 
   .panel { box-shadow: inset 0 1px 0 rgba(255,255,255,0.025); }
 
@@ -560,7 +600,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass - Watcher <span class="ver">v1.8.0</span></h1>
+    <h1>Lean Body Mass · Watcher <span class="ver">v1.8.1</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -635,7 +675,7 @@
         <span class="expand-icon" aria-hidden="true">⤢</span>
       </span>
     </div>
-    <svg id="lbmChart" viewBox="0 0 760 170" preserveAspectRatio="xMidYMid meet"></svg>
+    <svg id="lbmChart" viewBox="0 0 760 200" preserveAspectRatio="xMidYMid meet"></svg>
     <div class="legend">
       <span><i style="background:var(--real)"></i>LBM real (smoothed)</span>
       <span><i style="border-top:1px dashed var(--proj);height:0;"></i>Projection</span>
@@ -681,13 +721,13 @@
     <div class="body">
       <div class="slider-wrap">
         <div class="topline"><span>Target aggressiveness</span><b id="aggVal">75%</b></div>
+        <div class="hint"><span style="color:var(--good)">&lt;60%</span> protects LBM · <span style="color:var(--warn)">60–79%</span> aggressive cut · <span style="color:var(--danger)">≥80%</span> risk zone</div>
         <input type="range" id="agg" min="0" max="100" value="75" step="1">
-        <div class="hint"><span style="color:var(--good)">&lt;60%</span> protects LBM · <span style="color:var(--warn)">60–79%</span> aggressive cut · <span style="color:var(--danger)">≥80%</span> risk zone.</div>
       </div>
       <div class="slider-wrap" style="margin-top:14px;">
         <div class="topline"><span>Goal body fat %</span><b id="goalBfVal">12.0%</b></div>
+        <div class="hint"><span style="color:var(--good)">7–15</span> athletic · <span style="color:var(--warn)">16–26</span> acceptable · <span style="color:var(--danger)">≤7 / ≥27</span> dangerous</div>
         <input type="range" id="iGoalBf" min="1" max="30" value="12" step="0.1">
-        <div class="hint"><span style="color:var(--good)">7–15</span> athletic · <span style="color:var(--warn)">16–26</span> acceptable · <span style="color:var(--danger)">≤7 / ≥27</span> dangerous.</div>
       </div>
       <div class="row2" style="margin-top:14px;">
         <div class="field"><label>TDEE kcal</label><input type="text" inputmode="decimal" id="iTdee" placeholder="e.g. 2400"></div>
@@ -700,7 +740,7 @@
   <div class="panel">
     <div class="head"><h2>Data</h2></div>
     <div class="statusmsg" id="status"></div>
-    <div class="body" style="padding-top:0;">
+    <div class="body">
       <div class="bar">
         <button class="btn" id="exportBtn">Export CSV</button>
         <button class="btn" id="importBtn">Import CSV</button>
@@ -928,11 +968,11 @@ function ffmiStatus(v){
   if(v < 22) return 'warn';
   return 'good';
 }
-// Body fat: 7–15 athletisch · 16–26 oder 3.1–6.9 akzeptabel · ≤3 oder ≥27 kritisch.
+// Body fat: 7.1–15 athletisch (good) · 16–26 akzeptabel (warn) · ≤7 oder ≥27 kritisch (danger).
 function bfStatus(v){
   if(v == null || !isFinite(v)) return '';
-  if(v <= 3 || v >= 27) return 'danger';
-  if(v < 7 || v >= 16)  return 'warn';
+  if(v <= 7 || v >= 27) return 'danger';
+  if(v >= 16)  return 'warn';
   return 'good';
 }
 // Trends (Gewicht, BF): bei Cut-Phase ist negativer Trend „erfolgreich" → grün.
@@ -1264,10 +1304,9 @@ function render(){
   flashChangedValues(_prevStripe);
 }
 
-// Dashboard zeigt nur einen Ausschnitt: letzte 7 reale + erste 7 Projektionen.
-// Damit hat man Woche-zurück / heute / Woche-voraus auf einen Blick, ohne Scroll.
+// Dashboard zeigt einen Ausschnitt: letzte 8 reale (= 7 vor heute + heute) + 7 Projektionen = 15.
 // Das Vollbild-Modul (Records-Modal) bekommt dieselben Rows in voller Länge.
-const PREVIEW_BACK = 7;
+const PREVIEW_BACK = 8;
 const PREVIEW_FWD  = 7;
 
 function renderTable(){
@@ -1366,6 +1405,28 @@ function recordsKeyHandler(e){
   if(e.key === 'Escape'){ e.preventDefault(); closeRecords(); }
 }
 
+// ----- Chart-Modal Header Auto-Dim ------------------------------------------
+// Header overlays the chart. Visible on open, fades after 3 s of inactivity,
+// reappears on any touch/mousemove. Back button always findable.
+let _chartDimTimers = {};
+function peekChartHeader(modalId){
+  const m = document.getElementById(modalId);
+  if(!m) return;
+  const head = m.querySelector('.modal-head');
+  if(!head) return;
+  head.classList.remove('chart-dim');
+  clearTimeout(_chartDimTimers[modalId]);
+  _chartDimTimers[modalId] = setTimeout(() => head.classList.add('chart-dim'), 3000);
+}
+function initChartModalDim(modalId){
+  const m = document.getElementById(modalId);
+  if(!m) return;
+  const body = m.querySelector('.modal-body');
+  if(!body) return;
+  body.addEventListener('touchstart', () => peekChartHeader(modalId), { passive: true });
+  body.addEventListener('mousemove',  () => peekChartHeader(modalId));
+}
+
 // ----- LBM-Trend-Modal -----
 // Vollbild-Chart mit allen FFMI-Schwellen, Settling-Bereich, Today-Marker etc.
 // Versucht Fullscreen + Landscape-Orientierung zu erzwingen — iOS Safari lehnt das
@@ -1378,6 +1439,7 @@ function openLbmTrend(){
   tryLandscape();
   renderLbmChart({ compact: false });
   playModalEnter(m);
+  peekChartHeader('lbmTrendModal');
   setTimeout(() => { const c = document.getElementById('lbmTrendClose'); if(c) c.focus(); }, 0);
   document.addEventListener('keydown', lbmTrendKeyHandler);
 }
@@ -1400,6 +1462,7 @@ async function closeLbmTrend(){
   m.hidden = true;
   document.body.style.overflow = '';
   document.removeEventListener('keydown', lbmTrendKeyHandler);
+  clearTimeout(_chartDimTimers['lbmTrendModal']);
   try {
     if(screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
     if(document.fullscreenElement && document.exitFullscreen) await document.exitFullscreen();
@@ -1431,11 +1494,19 @@ function attachChartHover(svgId, getState, buildHtml, hoverGroupId, getY){
     rafId = requestAnimationFrame(() => {
       const state = getState();
       if(!state || !state.points || state.points.length === 0) return;
-      const rect = svg.getBoundingClientRect();
-      if(rect.width === 0) return;
-      const scaleX = svg.viewBox.baseVal.width  / rect.width;
-      const scaleY = svg.viewBox.baseVal.height / rect.height;
-      const svgX   = (clientX - rect.left) * scaleX;
+      const elem = svg.getBoundingClientRect();
+      if(elem.width === 0) return;
+      // Letterbox-aware content rect for preserveAspectRatio="xMidYMid meet":
+      // the SVG content may not fill the full element — compute actual painted area.
+      const vbW = svg.viewBox.baseVal.width, vbH = svg.viewBox.baseVal.height;
+      const svgAR = vbW / vbH, elemAR = elem.width / elem.height;
+      const cW  = elemAR > svgAR ? elem.height * svgAR : elem.width;
+      const cH  = elemAR > svgAR ? elem.height : elem.width / svgAR;
+      const cOX = (elem.width  - cW) / 2;   // horizontal letterbox offset
+      const cOY = (elem.height - cH) / 2;   // vertical letterbox offset
+      const scaleX = vbW / cW;
+      const scaleY = vbH / cH;
+      const svgX   = (clientX - elem.left - cOX) * scaleX;
       // nearest by X
       let best = null, bestDist = Infinity;
       for(const p of state.points){
@@ -1456,12 +1527,12 @@ function attachChartHover(svgId, getState, buildHtml, hoverGroupId, getY){
       }
       // tooltip
       tooltip.innerHTML = buildHtml(best, state);
-      const screenX = px / scaleX;
-      const screenY = py / scaleY;
+      const screenX = px / scaleX + cOX;
+      const screenY = py / scaleY + cOY;
       const tw = tooltip.offsetWidth  || 180;
       const th = tooltip.offsetHeight || 80;
       let left = screenX + 18;
-      if(left + tw > rect.width - 8) left = screenX - tw - 18;
+      if(left + tw > elem.width - 8) left = screenX - tw - 18;
       if(left < 8) left = 8;
       let top = screenY - th - 12;
       if(top < 8) top = screenY + 18;
@@ -1526,6 +1597,7 @@ function openWeightTrend(){
   tryLandscape();
   renderChart({ compact: false });
   playModalEnter(m);
+  peekChartHeader('weightTrendModal');
   setTimeout(() => { const c = document.getElementById('weightTrendClose'); if(c) c.focus(); }, 0);
   document.addEventListener('keydown', weightTrendKeyHandler);
 }
@@ -1535,6 +1607,7 @@ async function closeWeightTrend(){
   m.hidden = true;
   document.body.style.overflow = '';
   document.removeEventListener('keydown', weightTrendKeyHandler);
+  clearTimeout(_chartDimTimers['weightTrendModal']);
   try {
     if(screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
     if(document.fullscreenElement && document.exitFullscreen) await document.exitFullscreen();
@@ -1788,7 +1861,7 @@ function renderLbmChart(opts){
   // Leerer/zu dünner Zustand
   if(lbmS.length<2){
     const cx = compact ? 380 : 640;
-    const cy = compact ? 85  : 320;
+    const cy = compact ? 100 : 320;
     const lf = compact ? 11 : 14;
     const sf = compact ? 10 : 12;
     svg.innerHTML = `
@@ -1804,7 +1877,7 @@ function renderLbmChart(opts){
   }
 
   const W    = compact ? 760 : 1280;
-  const H    = compact ? 170 : 640;
+  const H    = compact ? 200 : 640;
   const padL = compact ? 42  : 64;
   const padR = compact ? 14  : 28;
   const padT = compact ? 14  : 40;
@@ -2243,6 +2316,9 @@ function bind(){
   // Attach the hover-crosshair handlers once. They look up live chart state on each event.
   attachChartHover('chartFull',    () => _weightChart, buildWeightTooltip, 'weightHoverGroup', p => p.w);
   attachChartHover('lbmChartFull', () => _lbmChart,    buildLbmTooltip,    'lbmHoverGroup',    p => p.lbm);
+  // Set up header auto-dim for both chart modals (event listeners wired once here).
+  initChartModalDim('lbmTrendModal');
+  initChartModalDim('weightTrendModal');
 }
 
 (function init(){
@@ -2251,7 +2327,7 @@ function bind(){
   document.getElementById('iDate').value=new Date().toISOString().slice(0,10);
   syncParamInputs();
   render();
-  if(had) setStatus('State loaded.');
+  // status intentionally left blank on load — user sees the data directly
 })();
 
 // Service worker: cached app shell for offline use + faster startup.
