@@ -655,7 +655,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.13</span></h1>
+    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.14</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -1459,9 +1459,9 @@ function render(){
   }
   if(lbmDelta7 != null){
     const sign = lbmDelta7>=0?'+':'';
-    $('sLbmReal').innerHTML = `${sign}${lbmDelta7.toFixed(2)}<small> kg</small>`;
+    $('sLbmReal').innerHTML = `${sign}${lbmDelta7.toFixed(2)}<small> kg/wk</small>`;
     $('sLbmReal').title = lbmSeries.length >= 8 ? 'LBM change over last 7 entries (smoothed)' : 'LBM change since first entry (smoothed, <8 entries)';
-  } else { $('sLbmReal').innerHTML='—<small> kg</small>'; }
+  } else { $('sLbmReal').innerHTML='—<small> kg/wk</small>'; }
   $('sBmi').textContent  = (r&&r.bmi!=null)?r.bmi.toFixed(2):'—';
   $('sFfmi').textContent = (r&&r.ffmi)?r.ffmi.toFixed(2):'—';
 
@@ -1482,7 +1482,28 @@ function render(){
   setCellStatus('sBf',      bfStatus(headBf));
   setCellStatus('sTrend',   trendStatus(parseFloat(trend)));
   setCellStatus('sBfTrend', trendStatus(parseFloat(bfTrend)));
-  setCellStatus('sLbmReal', lbmLossStatus(lbmStats.realFrac, lbmStats.warmup));
+  // sLbmReal color: 7-day LBM-loss fraction (green <10%, yellow 10–20%, red >20%).
+  {
+    let lbmFrac7Status = '';
+    if(lbmDelta7 != null){
+      if(lbmDelta7 >= 0){
+        lbmFrac7Status = 'good';
+      } else {
+        const wAtDate = date => { const idx=DATA.findIndex(d=>d.date===date&&d.type==='real'); return idx>=0?smooth(idx):null; };
+        const startE = lbmSeries.length>=8 ? lbmSeries[lbmSeries.length-8] : lbmSeries[0];
+        const endE   = lbmSeries[lbmSeries.length-1];
+        const wS = wAtDate(startE.date), wE = wAtDate(endE.date);
+        const wD = (wS!=null && wE!=null) ? wE-wS : null;
+        if(wD != null && wD < -0.05){
+          const frac7 = Math.abs(lbmDelta7) / Math.abs(wD);
+          lbmFrac7Status = frac7 > 0.20 ? 'danger' : frac7 >= 0.10 ? 'warn' : 'good';
+        } else if(wD != null){
+          lbmFrac7Status = 'danger'; // weight stable/gained but LBM dropped
+        }
+      }
+    }
+    setCellStatus('sLbmReal', lbmFrac7Status);
+  }
 
   // Aggressiveness binding: .key cards re-color their accent bar based on P.agg.
   const aggK = aggrStatus(P.agg);

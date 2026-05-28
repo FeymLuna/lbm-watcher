@@ -3,7 +3,7 @@
   "short_name": "LBM Watcher",
   "lang": "en",
   "description": "Local-only PWA for tracking weight, body fat, and lean body mass with EWMA smoothing and Alpert-based safety guard.",
-  "version": "1.9.13",
+  "version": "1.9.14",
   "start_url": "/lbm-watcher/",
   "display": "standalone",
   "background_color": "#000000",
