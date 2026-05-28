@@ -12,7 +12,7 @@
 // installierte Nutzer den alten Stand bis der Cache zufällig invalidiert wird.
 // -----------------------------------------------------------------------------
 
-const VERSION = 'v1.9.5';
+const VERSION = 'v1.9.6';
 const CACHE = 'lbm-watcher-' + VERSION;
 
 // App-Shell: alles, was zum ersten Laden ohne Netz nötig ist.
