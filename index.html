@@ -112,6 +112,9 @@
   .field input { width: 100%; background: var(--n900); border: 1px solid var(--line-2); border-radius: var(--r); color: var(--ink); font-family: var(--mono); font-size: 15px; padding: 10px 12px; outline: none; transition: border-color .15s, box-shadow .15s; font-variant-numeric: tabular-nums; }
   .field input::placeholder { color: var(--n400); }
   .field input:focus { border-color: var(--accent-dim); box-shadow: 0 0 0 3px rgba(234,242,77,0.08); }
+  .field select { width: 100%; background: var(--n900); border: 1px solid var(--line-2); border-radius: var(--r); color: var(--ink); font-family: var(--mono); font-size: 15px; padding: 10px 12px; padding-right: 32px; outline: none; cursor: pointer; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
+  .field select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(234,242,77,0.12); }
+  .field select option { background: var(--n800); }
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .btn { width: 100%; background: var(--accent); color: #0b0c08; border: none; border-radius: var(--r); font-family: var(--mono); font-size: 11px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; padding: 12px; cursor: pointer; transition: filter .15s, transform .05s; }
   .btn:hover { filter: brightness(1.08); }
@@ -627,7 +630,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.4</span></h1>
+    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.5</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -898,8 +901,10 @@ Activity factors
   1.72 · Active      (5–6 workouts / week)
   1.90 · Very active (daily training)
 
-Example — 80 kg · 175 cm · 30 y · male · moderate
-  BMR = 1 749 kcal  ·  TDEE ≈ 2 711 kcal</div>
+Example — 80 kg · 175 cm · 30 y · male · light
+  BMR             = 10×80 + 6.25×175 − 5×30 + 5  =  1 749 kcal
+  Activity factor = 1.37  (light)
+  TDEE            = 1 749 × 1.37                  =  2 396 kcal</div>
         </div>
 
         <!-- Height -->
@@ -919,6 +924,40 @@ Example — 80 kg · 175 cm · 30 y · male · moderate
             </div>
           </div>
           <p class="params-desc">Used to calculate BMI and FFMI (Fat-Free Mass Index). FFMI = LBM ÷ height². FFMI 25 marks the observed upper bound for naturally trained athletes (Kouri et al., 1995) — the projection model applies an asymptotic cap at this limit so projections remain biologically plausible.</p>
+        </div>
+
+        <!-- TDEE Calculator -->
+        <div class="params-section">
+          <div class="params-section-head">
+            <h3>TDEE Calculator</h3>
+            <span class="sub">Mifflin-St Jeor</span>
+          </div>
+          <div class="row2">
+            <div class="field"><label>Weight (kg)</label><input type="text" inputmode="decimal" id="calcWeight" placeholder="e.g. 80"></div>
+            <div class="field"><label>Height (cm)</label><input type="text" inputmode="decimal" id="calcHeight" placeholder="e.g. 175"></div>
+          </div>
+          <div class="row2">
+            <div class="field"><label>Age (years)</label><input type="text" inputmode="numeric" id="calcAge" placeholder="e.g. 30"></div>
+            <div class="field">
+              <label>Sex</label>
+              <div class="unit-toggle" style="margin-top:8px;">
+                <button class="unit-btn active" id="calcSexMale" type="button">Male</button>
+                <button class="unit-btn" id="calcSexFemale" type="button">Female</button>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <label>Activity level</label>
+            <select id="calcActivity">
+              <option value="1.20">1.20 · Sedentary — no exercise</option>
+              <option value="1.37" selected>1.37 · Light — 1–2 workouts / week</option>
+              <option value="1.55">1.55 · Moderate — 3–4 workouts / week</option>
+              <option value="1.72">1.72 · Active — 5–6 workouts / week</option>
+              <option value="1.90">1.90 · Very active — daily training</option>
+            </select>
+          </div>
+          <button class="btn" id="calcTdeeBtn" type="button" style="margin-top:12px;width:100%;">Calculate TDEE</button>
+          <div id="tdeeCalcResult" class="params-example" style="display:none;margin-top:12px;"></div>
         </div>
 
       </div>
@@ -1556,6 +1595,14 @@ function openParams(){
   m.hidden = false;
   document.body.style.overflow = 'hidden';
   playModalEnter(m);
+  // Pre-fill TDEE calculator fields from current context
+  const hEl = document.getElementById('calcHeight');
+  if(hEl && P.height) hEl.value = P.height;
+  const wEl = document.getElementById('calcWeight');
+  if(wEl){
+    const reals = DATA.filter(d => d.type === 'real');
+    if(reals.length) wEl.value = reals[reals.length - 1].weight;
+  }
   setTimeout(() => { const c = document.getElementById('paramsClose'); if(c) c.focus(); }, 0);
   document.addEventListener('keydown', paramsKeyHandler);
 }
@@ -1624,6 +1671,31 @@ function initHeightToggle(){
   ftBtn.onclick = showFt;
   iFt.oninput   = ftInToCm;
   iIn.oninput   = ftInToCm;
+}
+function initTdeeCalc(){
+  const btn     = document.getElementById('calcTdeeBtn');
+  const maleBtn = document.getElementById('calcSexMale');
+  const femBtn  = document.getElementById('calcSexFemale');
+  if(!btn) return;
+  let male = true;
+  maleBtn.onclick = () => { male = true;  maleBtn.classList.add('active'); femBtn.classList.remove('active'); };
+  femBtn.onclick  = () => { male = false; femBtn.classList.add('active');  maleBtn.classList.remove('active'); };
+  btn.onclick = () => {
+    const kg     = parseFloat(document.getElementById('calcWeight').value);
+    const cm     = parseFloat(document.getElementById('calcHeight').value);
+    const age    = parseFloat(document.getElementById('calcAge').value);
+    const factor = parseFloat(document.getElementById('calcActivity').value);
+    if(!kg || !cm || !age || kg <= 0 || cm <= 0 || age <= 0) return;
+    const bmr  = Math.round(10*kg + 6.25*cm - 5*age + (male ? 5 : -161));
+    const tdee = Math.round(bmr * factor);
+    const iTdee = document.getElementById('iTdee');
+    if(iTdee){ iTdee.value = tdee; iTdee.dispatchEvent(new Event('input')); }
+    const res = document.getElementById('tdeeCalcResult');
+    if(res){
+      res.style.display = '';
+      res.textContent = 'BMR  = ' + bmr + ' kcal\nTDEE = ' + bmr + ' × ' + factor + '  =  ' + tdee + ' kcal  ← applied';
+    }
+  };
 }
 
 // ----- Data Modal -----
@@ -2568,6 +2640,7 @@ function bind(){
     paramsModal.addEventListener('click', e => { if(e.target.dataset && e.target.dataset.close) closeParams(); });
   }
   initHeightToggle();
+  initTdeeCalc();
 
   // LBM Trend tile → fullscreen modal. Same trigger pattern as Records.
   const lbmTrendHead = document.getElementById('lbmTrendHead');
