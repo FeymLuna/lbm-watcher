@@ -345,9 +345,16 @@
   .unit-btn.active { background: var(--accent); color: #0b0c08; border-color: var(--accent); }
   .unit-btn:not(.active):hover { border-color: var(--n400); color: var(--ink); }
   .input-btn-row { display: flex; gap: 8px; align-items: stretch; }
-  .input-btn-row input { flex: 1; width: auto; min-width: 0; }
-  .btn-accent { background: var(--accent); color: #0b0c08; border-color: var(--accent); font-size: 10px; letter-spacing: 0.12em; white-space: nowrap; padding: 0 16px; }
+  .input-btn-row input  { flex: 1; width: auto; min-width: 0; }
+  .input-btn-row .btn   { flex: 1; }
+  .btn-accent { background: var(--accent); color: #0b0c08; border-color: var(--accent); font-size: 10px; letter-spacing: 0.12em; white-space: nowrap; padding: 0 8px; }
   .btn-accent:hover { background: #d4de3a; border-color: #d4de3a; }
+  .field-row-toggle { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 16px; }
+  .field-row-toggle > .field { flex: 1; margin-bottom: 0; }
+  .height-unit-toggle { flex: 1; padding-bottom: 1px; }
+  .height-unit-toggle .unit-btn { flex: 1; }
+  .sex-toggle { width: 100%; }
+  .sex-toggle .unit-btn { flex: 1; padding-top: 10px; padding-bottom: 10px; }
   .params-peek .pcell-btn { display: flex; align-items: center; justify-content: center; padding: 10px 12px; }
   .btn-calc-tdee { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; padding: 8px 12px; border-radius: var(--r); border: 1.5px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background var(--dur) var(--ease), color var(--dur) var(--ease); width: 100%; }
   .btn-calc-tdee:hover { background: var(--accent); color: #0b0c08; }
@@ -638,7 +645,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.6</span></h1>
+    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.7</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -892,12 +899,14 @@
         <div class="params-section">
           <div class="params-section-head">
             <h3>Personal</h3>
-            <div class="unit-toggle">
+          </div>
+          <div class="field-row-toggle">
+            <div id="heightCmField" class="field"><label>Height (cm)</label><input type="text" inputmode="decimal" id="iHeight" placeholder="e.g. 175"></div>
+            <div class="unit-toggle height-unit-toggle">
               <button class="unit-btn active" id="unitCmBtn" type="button">cm</button>
               <button class="unit-btn" id="unitFtBtn" type="button">ft · in</button>
             </div>
           </div>
-          <div id="heightCmField" class="field"><label>Height (cm)</label><input type="text" inputmode="decimal" id="iHeight" placeholder="e.g. 175"></div>
           <div id="heightFtField" style="display:none;">
             <div class="row2">
               <div class="field"><label>Feet</label><input type="text" inputmode="numeric" id="iFt" placeholder="5"></div>
@@ -908,7 +917,7 @@
             <div class="field"><label>Age (years)</label><input type="text" inputmode="numeric" id="iAge" placeholder="e.g. 30"></div>
             <div class="field">
               <label>Sex</label>
-              <div class="unit-toggle" style="margin-top:8px;">
+              <div class="unit-toggle sex-toggle">
                 <button class="unit-btn active" id="iSexMale" type="button">Male</button>
                 <button class="unit-btn" id="iSexFemale" type="button">Female</button>
               </div>
@@ -937,11 +946,10 @@
             <label>kcal / day</label>
             <div class="input-btn-row">
               <input type="text" inputmode="decimal" id="iTdee" placeholder="e.g. 2400">
-              <button class="btn btn-accent" id="calcTdeeBtn" type="button">Calculate</button>
+              <button class="btn btn-accent" id="calcTdeeBtn" type="button">Calculate TDEE</button>
             </div>
           </div>
-          <div id="tdeeCalcResult" class="params-example" style="display:none;margin-top:12px;"></div>
-          <p class="params-desc">Total calories burned on an average day including all activity. Enter manually or use Calculate — it applies Mifflin-St Jeor to today's smoothed weight with the personal parameters above.</p>
+          <p class="params-desc">Total calories burned on an average day including all activity. Enter manually or use Calculate TDEE — applies Mifflin-St Jeor to today's smoothed weight using the Personal parameters above.</p>
           <div class="params-example">How to estimate your TDEE
 ──────────────────────────
 
@@ -1681,8 +1689,6 @@ function doCalcTdee(){
   const tdee   = Math.round(bmr * factor);
   const iTdee  = document.getElementById('iTdee');
   if(iTdee){ iTdee.value = tdee; iTdee.dispatchEvent(new Event('input')); }
-  const res = document.getElementById('tdeeCalcResult');
-  if(res){ res.style.display=''; res.textContent='BMR  = '+bmr+' kcal\nTDEE = '+bmr+' × '+factor+'  =  '+tdee+' kcal  ← applied'; }
   return true;
 }
 function initTdeeCalc(){
