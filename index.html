@@ -115,16 +115,29 @@
   .btn { width: 100%; background: var(--accent); color: #0b0c08; border: none; border-radius: 5px; font-family: var(--mono); font-size: 11px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; padding: 12px; cursor: pointer; transition: filter .15s, transform .05s; }
   .btn:hover { filter: brightness(1.08); }
   .btn:active { transform: translateY(1px); }
+  .btn.danger { background: var(--danger); color: #0b0c08; }
   .btn.ghost { background: transparent; color: var(--ink-dim); border: 1px solid var(--line-2); }
   .btn.ghost:hover { color: var(--ink); border-color: var(--n400); filter:none; }
-  .btn.danger.ghost:hover { color: var(--danger); border-color: var(--danger); }
+  .btn.ghost.good   { border-color: var(--good);   color: var(--good); }
+  .btn.ghost.warn   { border-color: var(--warn);   color: var(--warn); }
+  .btn.ghost.danger { border-color: var(--danger); color: var(--danger); }
+  .btn.ghost.good:hover   { box-shadow: 0 0 0 1px var(--good); }
+  .btn.ghost.warn:hover   { box-shadow: 0 0 0 1px var(--warn); }
+  .btn.ghost.danger:hover { box-shadow: 0 0 0 1px var(--danger); }
 
   .slider-wrap { margin: 6px 0 2px; }
-  .slider-wrap .topline { display:flex; justify-content:space-between; align-items:baseline; font-size: 9px; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink-dim); margin-bottom:8px;}
+  .slider-wrap .topline { display:flex; justify-content:space-between; align-items:baseline; font-size: 9px; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink-dim); margin-bottom:0px;}
+  /* Negative margin trims invisible touch padding from layout without shrinking the hit area */
+  .slider-wrap input[type=range] { margin-top:-10px; margin-bottom:-10px; }
   .slider-wrap .topline b { color: var(--accent); font-size: 13px; font-weight: 700; }
-  input[type=range]{ -webkit-appearance:none; appearance:none; width:100%; height:3px; background:var(--line-2); border-radius:2px; outline:none;}
-  input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; width:16px; height:16px; background:var(--accent); cursor:pointer; border-radius:50%; box-shadow:0 0 0 4px var(--n900);}
-  input[type=range]::-moz-range-thumb{ width:16px; height:16px; background:var(--accent); cursor:pointer; border:none; border-radius:50%; box-shadow:0 0 0 4px var(--n900);}
+  /* Range slider — 40px touch-target, 3px visual track.
+     touch-action:pan-y lets the browser scroll vertically while JS captures horizontal drag.
+     Without this, iOS miscalculates the thumb position when the element height is very small. */
+  input[type=range]{ -webkit-appearance:none; appearance:none; width:100%; height:40px; background:transparent; outline:none; cursor:pointer; touch-action:pan-y; }
+  input[type=range]::-webkit-slider-runnable-track{ height:3px; background:var(--line-2); border-radius:2px; }
+  input[type=range]::-moz-range-track{ height:3px; background:var(--line-2); border-radius:2px; border:none; }
+  input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; width:18px; height:18px; background:var(--accent); cursor:pointer; border-radius:50%; box-shadow:0 0 0 4px var(--n900); margin-top:-7.5px; }
+  input[type=range]::-moz-range-thumb{ width:18px; height:18px; background:var(--accent); cursor:pointer; border:none; border-radius:50%; box-shadow:0 0 0 4px var(--n900); }
 
   /* Table */
   .tablewrap { max-height: 360px; overflow-y: auto; border-top: 1px solid var(--line); -webkit-overflow-scrolling: touch; }
@@ -151,7 +164,7 @@
   }
   /* Phone (vertikal) */
   @media (max-width: 560px) {
-    body { padding: 18px 14px calc(20px + env(safe-area-inset-bottom)); font-size: 13px; }
+    body { padding: 18px 14px calc(20px + env(safe-area-inset-bottom)); font-size: 14px; }
     .masthead { flex-direction: column; align-items: stretch; gap: 16px; padding-bottom: 14px; margin-bottom: 18px; }
     .masthead h1 { font-size: 14px; letter-spacing: 0.28em; }
     .eta { gap: 0; justify-content: space-between; }
@@ -175,8 +188,13 @@
 
     /* Tabelle: horizontal scrollbar, Datum bleibt sichtbar */
     .tablewrap { max-height: none; overflow-x: auto; }
-    table { font-size: 11px; }
-    th, td { padding: 8px 9px; }
+    table { font-size: 12px; }
+    th, td { padding: 8px 10px; }
+    .hint { font-size: 11.5px; line-height: 1.65; }
+    .stripe .k { font-size: 10px; }
+    .focus .label { font-size: 11px; }
+    .statusmsg { font-size: 10px; }
+    .panel .head h2 { font-size: 11px; letter-spacing: 0.2em; }
     td:first-child, th:first-child { position: sticky; left: 0; background: var(--panel); z-index: 2; }
     th:first-child { background: var(--panel-2); z-index: 3; }
     tr:hover td:first-child { background: var(--panel-2); }
@@ -184,6 +202,12 @@
     .bar { flex-direction: column; }
     .bar .btn { width: 100%; }
     .field input { font-size: 16px; } /* iOS-Zoom-Schutz */
+    /* Tighter cells on mobile — more content above the fold */
+    .stripe .cell { padding: 10px 12px; }
+    .stripe .v { font-size: 16px; }
+    /* Slider labels more readable on mobile */
+    .slider-wrap .topline { font-size: 10px; }
+    .slider-wrap .topline b { font-size: 15px; }
   }
   @media (hover: none) {
     .btn:hover, .btn.ghost:hover { filter: none; }
@@ -341,6 +365,7 @@
   }
   .btn          { transition: filter var(--dur) var(--ease), box-shadow var(--dur) var(--ease), transform var(--dur-fast) var(--ease); }
   .btn:hover    { filter: brightness(1.08); box-shadow: 0 6px 18px rgba(234,242,77,0.18); }
+  .btn.danger:hover { box-shadow: 0 6px 18px rgba(242,115,77,0.25); }
   .btn:active   { transform: scale(0.97); }
   .btn.ghost:hover  { filter: none; box-shadow: 0 0 0 1px var(--n400); }
   .btn.ghost:active { transform: scale(0.98); }
@@ -356,9 +381,15 @@
     box-shadow: 0 0 0 3px rgba(234,242,77,0.12);
   }
 
-  /* Range slider — the agg slider shows its three zones as a track gradient.
-     Subtle (30% opacity) so it doesn't shout, but tells the story immediately. */
-  input[type=range]#agg {
+  /* Range slider zone gradients — applied to the track pseudo-element, not the input itself,
+     because the input now has background:transparent (needed for the 40px touch target). */
+  input[type=range]#agg::-webkit-slider-runnable-track {
+    background: linear-gradient(to right,
+      rgba(108, 224, 168, 0.30) 0% 60%,
+      rgba(234, 242, 77,  0.30) 60% 80%,
+      rgba(242, 115, 77,  0.30) 80% 100%);
+  }
+  input[type=range]#agg::-moz-range-track {
     background: linear-gradient(to right,
       rgba(108, 224, 168, 0.30) 0% 60%,
       rgba(234, 242, 77,  0.30) 60% 80%,
@@ -367,13 +398,19 @@
   /* Goal BF slider — 1-30 range, zones mirror bfStatus() thresholds.
      Stop positions calculated as (value-1)/29 × 100%:
        3 → 6.9% · 7 → 20.7% · 16 → 51.7% · 27 → 89.7% */
-  input[type=range]#iGoalBf {
+  input[type=range]#iGoalBf::-webkit-slider-runnable-track {
     background: linear-gradient(to right,
-      rgba(242, 115, 77,  0.30) 0%     6.9%,    /* ≤3 = essential-fat danger */
-      rgba(234, 242, 77,  0.30) 6.9%   20.7%,   /* 3-7 = aggressive cut warn */
-      rgba(108, 224, 168, 0.30) 20.7%  51.7%,   /* 7-15 = athletic good */
-      rgba(234, 242, 77,  0.30) 51.7%  89.7%,   /* 16-26 = above-athletic warn */
-      rgba(242, 115, 77,  0.30) 89.7%  100%);   /* ≥27 = unhealthy danger */
+      rgba(242, 115, 77,  0.30) 0%     20.7%,   /* ≤7  = dangerous */
+      rgba(108, 224, 168, 0.30) 20.7%  51.7%,   /* 7–15 = athletic */
+      rgba(234, 242, 77,  0.30) 51.7%  89.7%,   /* 16–26 = acceptable */
+      rgba(242, 115, 77,  0.30) 89.7%  100%);   /* ≥27 = dangerous */
+  }
+  input[type=range]#iGoalBf::-moz-range-track {
+    background: linear-gradient(to right,
+      rgba(242, 115, 77,  0.30) 0%     20.7%,
+      rgba(108, 224, 168, 0.30) 20.7%  51.7%,
+      rgba(234, 242, 77,  0.30) 51.7%  89.7%,
+      rgba(242, 115, 77,  0.30) 89.7%  100%);
   }
   input[type=range]::-webkit-slider-thumb {
     transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur) var(--ease);
@@ -523,7 +560,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass - Watcher <span class="ver">v1.7.0</span></h1>
+    <h1>Lean Body Mass - Watcher <span class="ver">v1.8.0</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -546,7 +583,7 @@
   <div class="focus">
     <div class="card key">
       <div class="label">Target deficit · today</div>
-      <div><span class="val" id="fTarget">—</span><span class="unit">kcal/day</span></div>
+      <div><span class="val" id="fTarget">—</span><span class="unit">kcal</span></div>
       <div class="note" id="fTargetNote">— % of Alpert limit</div>
     </div>
     <div class="card key">
@@ -571,43 +608,6 @@
     <div class="cell"><div class="k">LBM Δ real (smoothed)</div><div class="v" id="sLbmReal">—<small> kg</small></div></div>
     <div class="cell"><div class="k">FFMI</div><div class="v" id="sFfmi">—</div></div>
     <div class="cell"><div class="k">BMI</div><div class="v" id="sBmi">—</div></div>
-  </div>
-
-  <!-- Entry — first, so it's reachable without scrolling on mobile -->
-  <div class="panel" style="margin-bottom:16px;">
-    <div class="head"><h2>Entry</h2></div>
-    <div class="body">
-      <div class="field"><label>Date</label><input type="date" id="iDate"></div>
-      <div class="row2">
-        <div class="field"><label>Weight kg</label><input type="number" step="0.01" id="iWeight" placeholder="85.40"></div>
-        <div class="field"><label>BF % (optional)</label><input type="number" step="0.1" id="iBf" placeholder="25.0"></div>
-      </div>
-      <button class="btn" id="addBtn">Add</button>
-      <div class="hint">Weight and BF are smoothed via EWMA (exponentially weighted, half-life ~2.4 days) to dampen bioimpedance noise. The safety guard (target / min intake) computes on the smoothed values; raw values remain visible in the table and chart. BF is optional — if missing, the last known raw value is carried forward.</div>
-    </div>
-  </div>
-
-  <!-- Parameters — Alpert is locked at 69 kcal/kg fat (Alpert's physiological maximum).
-       LBM loss share is now learned from real data; no slider, no override. -->
-  <div class="panel" style="margin-bottom:16px;">
-    <div class="head"><h2>Parameters</h2></div>
-    <div class="body">
-      <div class="slider-wrap">
-        <div class="topline"><span>Target aggressiveness</span><b id="aggVal">75%</b></div>
-        <input type="range" id="agg" min="0" max="100" value="75" step="1">
-        <div class="hint">Share of the Alpert limit. <span style="color:var(--good)">&lt;60%</span> protects LBM · <span style="color:var(--warn)">60–79%</span> standard cut · <span style="color:var(--danger)">≥80%</span> risk zone.</div>
-      </div>
-      <div class="slider-wrap" style="margin-top:14px;">
-        <div class="topline"><span>Goal body fat %</span><b id="goalBfVal">12.0%</b></div>
-        <input type="range" id="iGoalBf" min="1" max="30" value="12" step="0.1">
-        <div class="hint"><span style="color:var(--danger)">≤3 / ≥27</span> dangerous · <span style="color:var(--warn)">3–7 / 16–26</span> acceptable · <span style="color:var(--good)">7–15</span> athletic.</div>
-      </div>
-      <div class="row2" style="margin-top:14px;">
-        <div class="field"><label>TDEE kcal</label><input type="number" id="iTdee" placeholder="e.g. 2400"></div>
-        <div class="field"><label>Height cm</label><input type="number" id="iHeight" placeholder="e.g. 175"></div>
-      </div>
-      <div class="hint">Min. intake = TDEE − Alpert limit (69 kcal × kg fat). LBM loss share is learned automatically once ≥21 real BF measurements are collected; until then a conservative 15% is assumed for projections.</div>
-    </div>
   </div>
 
   <!-- Weight Trend — tap/click the head to open fullscreen detail view -->
@@ -637,7 +637,7 @@
     </div>
     <svg id="lbmChart" viewBox="0 0 760 170" preserveAspectRatio="xMidYMid meet"></svg>
     <div class="legend">
-      <span><i style="background:var(--good)"></i>LBM real (smoothed)</span>
+      <span><i style="background:var(--real)"></i>LBM real (smoothed)</span>
       <span><i style="border-top:1px dashed var(--proj);height:0;"></i>Projection</span>
       <span><i style="background:var(--line-2);height:8px;width:8px;"></i>Planning band 10–20%</span>
       <span id="lbmVerdict" style="color:var(--ink-dim);"></span>
@@ -661,21 +661,55 @@
     </div>
   </div>
 
+  <!-- Entry -->
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="head"><h2>Entry</h2></div>
+    <div class="body">
+      <div class="field"><label>Date</label><input type="date" id="iDate"></div>
+      <div class="row2">
+        <div class="field"><label>Weight kg</label><input type="text" inputmode="decimal" id="iWeight" placeholder="85.40"></div>
+        <div class="field"><label>BF %</label><input type="text" inputmode="decimal" id="iBf" placeholder="25.0"></div>
+      </div>
+      <button class="btn" id="addBtn">Add</button>
+    </div>
+  </div>
+
+  <!-- Parameters — Alpert is locked at 69 kcal/kg fat (Alpert's physiological maximum).
+       LBM loss share is now learned from real data; no slider, no override. -->
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="head"><h2>Parameters</h2></div>
+    <div class="body">
+      <div class="slider-wrap">
+        <div class="topline"><span>Target aggressiveness</span><b id="aggVal">75%</b></div>
+        <input type="range" id="agg" min="0" max="100" value="75" step="1">
+        <div class="hint"><span style="color:var(--good)">&lt;60%</span> protects LBM · <span style="color:var(--warn)">60–79%</span> aggressive cut · <span style="color:var(--danger)">≥80%</span> risk zone.</div>
+      </div>
+      <div class="slider-wrap" style="margin-top:14px;">
+        <div class="topline"><span>Goal body fat %</span><b id="goalBfVal">12.0%</b></div>
+        <input type="range" id="iGoalBf" min="1" max="30" value="12" step="0.1">
+        <div class="hint"><span style="color:var(--good)">7–15</span> athletic · <span style="color:var(--warn)">16–26</span> acceptable · <span style="color:var(--danger)">≤7 / ≥27</span> dangerous.</div>
+      </div>
+      <div class="row2" style="margin-top:14px;">
+        <div class="field"><label>TDEE kcal</label><input type="text" inputmode="decimal" id="iTdee" placeholder="e.g. 2400"></div>
+        <div class="field"><label>Height cm</label><input type="text" inputmode="decimal" id="iHeight" placeholder="e.g. 175"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Data -->
   <div class="panel">
     <div class="head"><h2>Data</h2></div>
-    <div class="statusmsg" id="status">Ready.</div>
+    <div class="statusmsg" id="status"></div>
     <div class="body" style="padding-top:0;">
       <div class="bar">
-        <button class="btn ghost" id="exportBtn">Export CSV</button>
-        <button class="btn ghost" id="importBtn">Import CSV</button>
+        <button class="btn" id="exportBtn">Export CSV</button>
+        <button class="btn" id="importBtn">Import CSV</button>
       </div>
       <!-- accept broadened: mobile pickers sometimes hide .csv when the MIME type
            isn't exactly "text/csv". Listing the common variants keeps the picker
            permissive without dropping all filtering on desktop. -->
       <input type="file" id="fileInput" accept=".csv,text/csv,text/plain,application/vnd.ms-excel" style="display:none;">
-      <div class="bar"><button class="btn ghost" id="clearBtn">Clear storage</button></div>
-      <div class="hint">Data lives locally in the browser (localStorage) — no login, no cloud. Export saves your full state as CSV; "Clear storage" irreversibly deletes all locally stored data. Export regularly.</div>
+      <div class="bar"><button class="btn danger" id="clearBtn">Clear storage</button></div>
     </div>
   </div>
 </div>
@@ -1100,6 +1134,28 @@ function corridorBand(pct){
   return out;
 }
 
+// ---------- Nice Y-axis scale ----------
+// Returns { axisMin, axisMax, step, minorStep, ticks:[{v, major}] } where major ticks land
+// on whole multiples of `step` (integers for step≥1). Minor ticks subdivide at step/2.
+function niceAxis(dataMin, dataMax, targetMajor) {
+  const rawRange = Math.max(dataMax - dataMin, 0.01);
+  const rawStep  = rawRange / Math.max(1, targetMajor || 5);
+  const p        = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const f        = rawStep / p;
+  const niceM    = f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10;
+  const step     = +(niceM * p).toPrecision(6);
+  const axisMin  = +(Math.floor(dataMin / step + 1e-9) * step).toPrecision(10);
+  const axisMax  = +(Math.ceil( dataMax / step - 1e-9) * step).toPrecision(10);
+  const minorStep = step / 2;
+  const eps = minorStep * 0.001;
+  const ticks = [];
+  for (let i = 0; axisMin + i * minorStep <= axisMax + eps; i++) {
+    const v = +(axisMin + i * minorStep).toFixed(8);
+    ticks.push({ v, major: i % 2 === 0 });
+  }
+  return { axisMin, axisMax, step, minorStep, ticks };
+}
+
 // ---------- Render ----------
 function render(){
   // Snapshot stripe values before re-rendering so we can flash the ones that change.
@@ -1122,7 +1178,7 @@ function render(){
   const $=id=>document.getElementById(id);
   if(r && r.target!=null){
     $('fTarget').textContent = Math.round(r.target);
-    $('fTargetNote').textContent = P.agg+'% of Alpert limit ('+Math.round(r.alpertLimit)+' kcal)';
+    $('fTargetNote').innerHTML = P.agg+'% of Alpert Limit (<span style="color:var(--danger)">'+Math.round(r.alpertLimit)+'</span> kcal)';
     if(P.tdee!=null){
       $('fIntake').textContent = Math.round(P.tdee - r.target);
       $('fIntakeNote').textContent = 'TDEE '+P.tdee+' − '+Math.round(r.target)+' deficit';
@@ -1130,7 +1186,7 @@ function render(){
     } else {
       $('fIntake').textContent='—'; $('fMin').textContent='—'; $('fIntakeNote').textContent='Enter TDEE';
     }
-  } else { $('fTarget').textContent='—'; $('fIntake').textContent='—'; $('fMin').textContent='—'; $('fTargetNote').textContent='BF value required'; $('fIntakeNote').textContent='TDEE − target deficit'; }
+  } else { $('fTarget').textContent='—'; $('fIntake').textContent='—'; $('fMin').textContent='—'; $('fTargetNote').textContent=P.agg+'% of Alpert Limit'; $('fIntakeNote').textContent='TDEE − target deficit'; }
 
   $('sWeight').innerHTML = (sW?sW.toFixed(2):'—')+'<small> kg</small>';
   // Trend: geglättet heute vs vor 7 realen — gleiche Logik für Gewicht und BF
@@ -1254,16 +1310,7 @@ function renderRows(tbody, rows){
     // Empty-state row — spans all 11 columns; hidden cols on mobile don't affect colspan.
     const tr = document.createElement('tr');
     tr.className = 'empty-row';
-    tr.innerHTML = `<td colspan="11">
-      <div class="empty-state-inline">
-        <svg viewBox="0 0 60 30" fill="none" aria-hidden="true">
-          <path d="M2 24 L16 12 L30 18 L44 6 L58 10" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
-          <circle cx="58" cy="10" r="2.5" fill="var(--accent)"/>
-        </svg>
-        <div>No entries yet</div>
-        <div class="e-sub">Track your first weight above to begin</div>
-      </div>
-    </td>`;
+    tr.innerHTML = `<td colspan="11"><div class="empty-state-inline"><div>NO DATA YET</div></div></td>`;
     tbody.appendChild(tr);
     return;
   }
@@ -1542,7 +1589,7 @@ function renderChart(opts){
         <circle cx="58" cy="12" r="2.5" fill="var(--accent)"/>
       </g>
       <text x="${cx}" y="${cy+22}" fill="var(--ink-faint)" text-anchor="middle" font-size="${lf}" letter-spacing="3" font-weight="600">NO DATA YET</text>
-      <text x="${cx}" y="${cy+42}" fill="var(--ink-faint)" text-anchor="middle" font-size="${sf}" opacity="0.65">Add your first entry to begin</text>`;
+      `;
     if(!compact){ const i=$('weightTrendInfo'); if(i) i.textContent='—'; }
     return;
   }
@@ -1565,22 +1612,28 @@ function renderChart(opts){
     bmiLines.forEach(t => ys.push(t.bmi * heightM * heightM));
   }
 
-  const minY = Math.min(...ys)-0.5, maxY = Math.max(...ys)+0.5;
+  const axis = niceAxis(Math.min(...ys) - 0.1, Math.max(...ys) + 0.1, compact ? 5 : 7);
   const sx = t => padL + (t-minX)/((maxX-minX)||1) * (W-padL-padR);
-  const sy = v => padT + (maxY-v)/((maxY-minY)||1) * (H-padT-padB);
+  const sy = v => padT + (axis.axisMax-v)/((axis.axisMax-axis.axisMin)||1) * (H-padT-padB);
   const path = arr => arr.map((p,i) => (i?'L':'M') + sx(+new Date(p.x)).toFixed(1) + ',' + sy(p.y).toFixed(1)).join(' ');
 
   const fs = compact ? { y:12, label:11, x:12, ann:11 } : { y:16, label:14, x:14, ann:14 };
 
   // Transparent hit-rect first so mousemove fires over empty chart areas, not just painted lines.
   let g = !compact ? `<rect x="0" y="0" width="${W}" height="${H}" fill="transparent" pointer-events="all"/>` : '';
-  // Y-Grid + Labels
-  const ySteps = compact ? 5 : 6;
-  for(let i=0; i<=ySteps; i++){
-    const v=minY+(maxY-minY)*i/ySteps; const yy=sy(v);
-    g+=`<line x1="${padL}" y1="${yy}" x2="${W-padR}" y2="${yy}" stroke="var(--grid)"/>`;
-    g+=`<text x="${padL-8}" y="${yy+4}" fill="var(--axis)" font-size="${fs.y}" text-anchor="end">${v.toFixed(1)}</text>`;
-  }
+  // Y-axis: major ticks get a full gridline + integer label; minor ticks get a small tick mark only.
+  if(!compact) g += `<text x="${padL-10}" y="${padT-10}" fill="var(--axis)" font-size="13" text-anchor="end" letter-spacing="1.5">kg</text>`;
+  axis.ticks.forEach(tick => {
+    const yy = sy(tick.v);
+    if(yy < padT - 4 || yy > H - padB + 4) return;
+    if(tick.major){
+      g+=`<line x1="${padL}" y1="${yy.toFixed(1)}" x2="${W-padR}" y2="${yy.toFixed(1)}" stroke="var(--grid)"/>`;
+      const lbl = axis.step >= 1 ? String(Math.round(tick.v)) : tick.v.toFixed(1);
+      g+=`<text x="${(padL-8)}" y="${(yy+4).toFixed(1)}" fill="var(--axis)" font-size="${fs.y}" text-anchor="end">${lbl}</text>`;
+    } else {
+      g+=`<line x1="${(padL-5).toFixed(1)}" y1="${yy.toFixed(1)}" x2="${padL}" y2="${yy.toFixed(1)}" stroke="var(--axis)" opacity="0.35" stroke-width="1"/>`;
+    }
+  });
 
   // Korridor-Band (zwischen 10%- und 20%-Szenario) — gefüllte Zone, nach hinten.
   // [Bug-fix v1.4.1] vorher wurde p.y verwendet; corridorBand liefert aber .w, daher rendert
@@ -1602,7 +1655,7 @@ function renderChart(opts){
   if(!compact && heightM){
     bmiLines.forEach(t => {
       const weightAt = t.bmi * heightM * heightM;
-      if(weightAt >= minY && weightAt <= maxY){
+      if(weightAt >= axis.axisMin && weightAt <= axis.axisMax){
         const y = sy(weightAt);
         g+=`<line class="threshold-line" x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="${t.color}" stroke-width="1" stroke-dasharray="6 4"/>`;
         g+=`<text x="${padL+8}" y="${y-4}" fill="${t.color}" font-size="${fs.label}" text-anchor="start">${t.label} ≈ ${weightAt.toFixed(1)} kg</text>`;
@@ -1626,9 +1679,9 @@ function renderChart(opts){
   // Reale Linie (durchgezogen, geglättet)
   g+=`<path class="real-line" d="${path(reals.map(d=>({x:d.date,y:d.sw||d.w})))}" fill="none" stroke="var(--real)" stroke-width="${compact?2:2.5}" stroke-linejoin="round"/>`;
 
-  // Raw-Dots (jede einzelne Messung — zeigt das Rauschen vs Trend)
+  // Raw-Dots — each individual measurement, visible in both compact and fullscreen
   reals.forEach(d => {
-    g+=`<circle class="raw-dot" cx="${sx(+new Date(d.date)).toFixed(1)}" cy="${sy(d.w).toFixed(1)}" r="${compact?1.8:2.4}" fill="var(--n400)"${compact?'':' opacity="0.7"'}/>`;
+    g+=`<circle class="raw-dot" cx="${sx(+new Date(d.date)).toFixed(1)}" cy="${sy(d.w).toFixed(1)}" r="${compact?2.2:3}" fill="var(--n200)" opacity="${compact?'0.7':'0.85'}"/>`;
   });
 
   // Letzter realer Punkt — Fokus-Marker mit Glow
@@ -1740,11 +1793,11 @@ function renderLbmChart(opts){
     const sf = compact ? 10 : 12;
     svg.innerHTML = `
       <g transform="translate(${cx-30}, ${cy-26})" opacity="0.5">
-        <path d="M0 22 L14 10 L28 16 L42 6 L56 10" stroke="var(--good)" stroke-width="1.5" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+        <path d="M0 22 L14 10 L28 16 L42 6 L56 10" stroke="var(--ink-faint)" stroke-width="1.5" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
         <circle cx="56" cy="10" r="2.5" fill="var(--accent)"/>
       </g>
-      <text x="${cx}" y="${cy+22}" fill="var(--ink-faint)" text-anchor="middle" font-size="${lf}" letter-spacing="3" font-weight="600">NO BF DATA YET</text>
-      <text x="${cx}" y="${cy+40}" fill="var(--ink-faint)" text-anchor="middle" font-size="${sf}" opacity="0.65">Log a body-fat % to start the trend</text>`;
+      <text x="${cx}" y="${cy+22}" fill="var(--ink-faint)" text-anchor="middle" font-size="${lf}" letter-spacing="3" font-weight="600">NO DATA YET</text>
+      `;
     if(compact){ $('lbmGuardInfo').textContent='—'; $('lbmVerdict').textContent=''; }
     else { const i=$('lbmTrendInfo'); if(i) i.textContent='—'; }
     return;
@@ -1809,9 +1862,9 @@ function renderLbmChart(opts){
 
   const dates = allDates.map(d => +new Date(d));
   const minX  = Math.min(...dates), maxX = Math.max(...dates);
-  const minY  = Math.min(...allLbm)-0.3, maxY = Math.max(...allLbm)+0.3;
+  const axis = niceAxis(Math.min(...allLbm) - 0.1, Math.max(...allLbm) + 0.1, compact ? 4 : 7);
   const sx = t => padL + (t-minX)/((maxX-minX)||1) * (W-padL-padR);
-  const sy = v => padT + (maxY-v)/((maxY-minY)||1) * (H-padT-padB);
+  const sy = v => padT + (axis.axisMax-v)/((axis.axisMax-axis.axisMin)||1) * (H-padT-padB);
   const path = arr => arr.map((p,i) => (i?'L':'M') + sx(+new Date(p.date)).toFixed(1) + ',' + sy(p.lbm).toFixed(1)).join(' ');
 
   // Font-Größen skalieren mit compact/fullscreen
@@ -1821,13 +1874,19 @@ function renderLbmChart(opts){
 
   // Transparent hit-rect first so mousemove fires over empty chart areas, not just painted lines.
   let g = !compact ? `<rect x="0" y="0" width="${W}" height="${H}" fill="transparent" pointer-events="all"/>` : '';
-  // Y-Grid + Labels
-  const ySteps = compact ? 3 : 5;
-  for(let i=0; i<=ySteps; i++){
-    const v=minY+(maxY-minY)*i/ySteps; const yy=sy(v);
-    g+=`<line x1="${padL}" y1="${yy}" x2="${W-padR}" y2="${yy}" stroke="var(--grid)"/>`;
-    g+=`<text x="${padL-8}" y="${yy+4}" fill="var(--axis)" font-size="${fs.y}" text-anchor="end">${v.toFixed(1)}</text>`;
-  }
+  // Y-axis: major ticks get gridline + integer label; minor ticks get a small tick mark only.
+  if(!compact) g += `<text x="${padL-10}" y="${padT-10}" fill="var(--axis)" font-size="13" text-anchor="end" letter-spacing="1.5">kg</text>`;
+  axis.ticks.forEach(tick => {
+    const yy = sy(tick.v);
+    if(yy < padT - 4 || yy > H - padB + 4) return;
+    if(tick.major){
+      g+=`<line x1="${padL}" y1="${yy.toFixed(1)}" x2="${W-padR}" y2="${yy.toFixed(1)}" stroke="var(--grid)"/>`;
+      const lbl = axis.step >= 1 ? String(Math.round(tick.v)) : tick.v.toFixed(1);
+      g+=`<text x="${(padL-8)}" y="${(yy+4).toFixed(1)}" fill="var(--axis)" font-size="${fs.y}" text-anchor="end">${lbl}</text>`;
+    } else {
+      g+=`<line x1="${(padL-5).toFixed(1)}" y1="${yy.toFixed(1)}" x2="${padL}" y2="${yy.toFixed(1)}" stroke="var(--axis)" opacity="0.35" stroke-width="1"/>`;
+    }
+  });
 
   // Planungsband 10–20%
   if(band10.length>1 && band20.length>1){
@@ -1849,7 +1908,7 @@ function renderLbmChart(opts){
   if(!compact){
     ffmiLines.forEach(t => {
       const lbmVal = t.ffmi * heightM * heightM;
-      if(lbmVal >= minY && lbmVal <= maxY){
+      if(lbmVal >= axis.axisMin && lbmVal <= axis.axisMax){
         const y = sy(lbmVal);
         g+=`<line class="threshold-line" x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="${t.color}" stroke-width="1" stroke-dasharray="6 4"/>`;
         g+=`<text x="${padL+8}" y="${y-4}" fill="${t.color}" font-size="${fs.label}" text-anchor="start">${t.label} ≈ ${lbmVal.toFixed(1)} kg</text>`;
@@ -1877,15 +1936,26 @@ function renderLbmChart(opts){
     const projLine = [{ date: lbmS[lbmS.length-1].date, lbm: lbmS[lbmS.length-1].lbm }, ...projLbm];
     g+=`<path class="proj-line" d="${path(projLine)}" fill="none" stroke="var(--proj)" stroke-width="${compact?1.5:2}" stroke-dasharray="${compact?'3 3':'5 5'}"/>`;
   }
-  // Reale LBM (durchgezogen, grün)
-  g+=`<path class="real-line" d="${path(lbmS)}" fill="none" stroke="var(--good)" stroke-width="${compact?2:2.5}" stroke-linejoin="round"/>`;
+  // LBM-Linienfarbe: grün <10%, gelb 10–20%, rot >20% — nur wenn Trend stabil
+  const lineColor = (!stats.warmup && stats.realFrac != null && stats.totalLoss != null && stats.totalLoss > 0.5)
+    ? (stats.realFrac > 0.20 ? 'var(--danger)' : stats.realFrac >= 0.10 ? 'var(--warn)' : 'var(--good)')
+    : 'var(--good)';
 
-  // Raw-LBM-Punkte (vor Glättung) — Vollbild only, würde Dashboard-Tile zumüllen.
-  if(!compact){
-    lbmS.forEach(p => {
-      if(p.raw == null) return;
-      g+=`<circle class="raw-dot" cx="${sx(+new Date(p.date)).toFixed(1)}" cy="${sy(p.raw).toFixed(1)}" r="2.4" fill="var(--n400)" opacity="0.7"/>`;
-    });
+  // Reale LBM (durchgezogen, dynamisch gefärbt)
+  g+=`<path class="real-line" d="${path(lbmS)}" fill="none" stroke="${lineColor}" stroke-width="${compact?2:2.5}" stroke-linejoin="round"/>`;
+
+  // Raw-LBM-Punkte (vor Glättung) — compact and fullscreen
+  lbmS.forEach(p => {
+    if(p.raw == null) return;
+    g+=`<circle class="raw-dot" cx="${sx(+new Date(p.date)).toFixed(1)}" cy="${sy(p.raw).toFixed(1)}" r="${compact?2:3}" fill="var(--n200)" opacity="${compact?'0.6':'0.85'}"/>`;
+  });
+
+  // Letzter realer LBM-Punkt — Fokus-Marker (Farbe folgt lineColor)
+  if(lbmS.length){
+    const ll = lbmS[lbmS.length-1];
+    const llx = sx(+new Date(ll.date)).toFixed(1), lly = sy(ll.lbm).toFixed(1);
+    g+=`<circle class="focus-marker" cx="${llx}" cy="${lly}" r="${compact?5:7}" fill="${lineColor}" fill-opacity="0.18"/>`;
+    g+=`<circle class="focus-marker" cx="${llx}" cy="${lly}" r="${compact?3:4}" fill="${lineColor}"/>`;
   }
 
   // Projektions-End-Marker — Vollbild
@@ -2120,6 +2190,9 @@ function bind(){
   ['iTdee:tdee','iHeight:height'].forEach(p=>{
     const [id,key]=p.split(':'); document.getElementById(id).oninput=()=>{ const v=document.getElementById(id).value; P[key]=v===''?null:+v; save(); render(); };
   });
+  ['iWeight','iBf','iTdee','iHeight'].forEach(id=>{
+    document.getElementById(id).addEventListener('input',function(){ const v=this.value.replace(/,/g,'.'); if(v!==this.value) this.value=v; });
+  });
 
   // Records preview → full modal. Click + keyboard (Enter/Space) trigger it.
   const recordsHead = document.getElementById('recordsHead');
@@ -2178,7 +2251,7 @@ function bind(){
   document.getElementById('iDate').value=new Date().toISOString().slice(0,10);
   syncParamInputs();
   render();
-  setStatus(had?'State loaded.':'Empty — import CSV or enter data manually.');
+  if(had) setStatus('State loaded.');
 })();
 
 // Service worker: cached app shell for offline use + faster startup.
