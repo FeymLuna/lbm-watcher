@@ -339,6 +339,7 @@
   .unit-btn.active { background: var(--accent); color: #0b0c08; border-color: var(--accent); }
   .unit-btn:not(.active):hover { border-color: var(--n400); color: var(--ink); }
   #paramsModal .field input { margin-top: 0; }
+  #paramsModal .slider-wrap .topline span { font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink); }
 
   /* Mobile: dashboard preview only shows body-comp essentials.
      Columns hidden on ≤560px: BF~ (4), Target Def. (8), Target In (9), Min. In (10), ✕ (11).
@@ -623,7 +624,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.2</span></h1>
+    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.3</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -966,7 +967,7 @@ Example — 80 kg · 175 cm · 30 y · male · moderate
 2025-01-01,85.40,24.5
 2025-01-03,85.10,
 2025-01-05,84.80,24.2
-#params,agg=55,lbmpct=15,tdee=2400;alpert=69;height=175;goalBf=15;buffer=0</div>
+#params,agg=55,tdee=2400;height=175;goalBf=15</div>
           <p class="params-desc" style="margin-top:12px;"><b>date</b> — YYYY-MM-DD (ISO 8601)<br><b>weight</b> — kilograms<br><b>bodyfat</b> — percent, optional per row<br><b>#params</b> — parameter snapshot; import replaces all data and settings in one step</p>
         </div>
 
@@ -978,13 +979,9 @@ Example — 80 kg · 175 cm · 30 y · male · moderate
 <script>
 const STORE_KEY = 'telemetrie_v1';
 let DATA = [];   // {date:'YYYY-MM-DD', w:Number, bf:Number|null, type:'real'|'proj'}
-// Locked invariants since v1.3:
-//   alpert = 69 kcal × kg fat (Alpert's physiological maximum)
-//   buffer = 0 kcal (no safety cushion — Min. intake hugs the Alpert limit exactly)
-// They live on P so persistence/CSV round-trips keep working, but lockInvariants()
-// re-applies them after every load/import so a tampered file can't override them.
-let P = { agg:55, lbmpct:15, tdee:null, alpert:69, height:null, goalBf:15, buffer:0 };
-function lockInvariants(){ P.alpert = 69; P.buffer = 0; }
+// Physiological constant — never user-configurable (Alpert, 2005).
+const ALPERT = 69;  // kcal / kg fat / day
+let P = { agg:55, tdee:null, height:null, goalBf:15 };
 
 // ---------- Persistenz (localStorage — funktioniert auf GitHub Pages, kein Login/Cloud) ----------
 function save(){
@@ -995,7 +992,7 @@ function save(){
 function load(){
   try {
     const raw = localStorage.getItem(STORE_KEY);
-    if(raw){ const o = JSON.parse(raw); DATA=o.data||[]; P=Object.assign(P,o.params||{}); lockInvariants(); return true; }
+    if(raw){ const o = JSON.parse(raw); DATA=o.data||[]; P=Object.assign(P,o.params||{}); return true; }
   } catch(e){}
   return false;
 }
@@ -1083,7 +1080,7 @@ function calcRow(w, bf){
     lbm = w*(1-bf/100);
     ffmi = h ? lbm/(h*h) : null;
     fat = w-lbm;
-    alpertLimit = fat*P.alpert;              // Alpert ist fix 69 kcal/kg Fett — physiol. Limit
+    alpertLimit = fat*ALPERT;
     target = alpertLimit*(P.agg/100);
     minIntake = (P.tdee!=null) ? P.tdee - alpertLimit : null;  // ohne Buffer, hartes Alpert
   }
@@ -1270,7 +1267,7 @@ function buildProjection(){
     const fatNow    = w - lbmNow;
     const bfNow     = (fatNow/w)*100;
     if(bfNow <= targetBf) break;
-    const targetNow = fatNow * P.alpert * (P.agg/100);
+    const targetNow = fatNow * ALPERT * (P.agg/100);
     if(targetNow <= 0) break;                  // agg=0 → kein Defizit → keine Projektion
     const dW = targetNow/7700;
     w -= dW;
@@ -1311,7 +1308,7 @@ function corridorBand(pct){
     const fatNow=w-lbmNow;
     const bfNow=(fatNow/w)*100;
     if(bfNow<=targetBf) break;
-    const targetNow=fatNow*P.alpert*(P.agg/100);
+    const targetNow=fatNow*ALPERT*(P.agg/100);
     if(targetNow <= 0) break;
     w -= targetNow/7700; if(w<50)break;
     day++;
@@ -2428,7 +2425,7 @@ function flashChangedValues(oldVals){
 function buildCSV(){
   const rows=[['date','weight','bodyfat']];
   DATA.forEach(d=>rows.push([d.date,d.w,d.bf??'']));
-  rows.push(['#params','agg='+P.agg,'lbmpct='+P.lbmpct,'tdee='+P.tdee+';alpert='+P.alpert+';height='+P.height+';goalBf='+P.goalBf+';buffer='+P.buffer]);
+  rows.push(['#params','agg='+P.agg,'tdee='+P.tdee+';height='+P.height+';goalBf='+P.goalBf]);
   return rows.map(r=>r.join(',')).join('\n');
 }
 async function exportCSV(){
@@ -2462,14 +2459,17 @@ function importCSV(text){
   for(const ln of lines){
     if(ln.startsWith('date')||ln.trim()==='') continue;
     if(ln.startsWith('#params')){
-      const m=ln.match(/agg=(\d+).*?lbmpct=(\d+).*?tdee=(\d+);alpert=(\d+);height=(\d+);goalBf=([\d.]+);buffer=(\d+)/);
-      if(m){ P.agg=+m[1];P.lbmpct=+m[2];P.tdee=+m[3];P.alpert=+m[4];P.height=+m[5];P.goalBf=+m[6];P.buffer=+m[7]; }
+      const g=(k,fl)=>{ const m=ln.match(new RegExp(k+'=([\\d.]+)')); return m?+(fl?m[1]:m[1]):null; };
+      if(g('agg')    !=null) P.agg    = g('agg');
+      if(g('tdee')   !=null) P.tdee   = g('tdee');
+      if(g('height') !=null) P.height = g('height');
+      if(g('goalBf') !=null) P.goalBf = g('goalBf', true);
       continue;
     }
     const [date,w,bf]=ln.split(',');
     if(date&&w) out.push({date,w:+w,bf:(bf===undefined||bf==='')?null:+bf,type:'real'});
   }
-  if(out.length){ DATA=out; lockInvariants(); syncParamInputs(); save(); render(); setStatus('Imported: '+DATA.length+' entries.'); }
+  if(out.length){ DATA=out; syncParamInputs(); save(); render(); setStatus('Imported: '+DATA.length+' entries.'); }
   else setStatus('No valid rows.');
 }
 function syncParamInputs(){
