@@ -645,7 +645,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.8</span></h1>
+    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.9</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -914,11 +914,11 @@
           <div class="field">
             <label>Activity level</label>
             <select id="iActFactor">
-              <option value="1.20">1.20 · Sedentary — no exercise</option>
-              <option value="1.37" selected>1.37 · Light — 1–2 workouts / week</option>
-              <option value="1.55">1.55 · Moderate — 3–4 workouts / week</option>
-              <option value="1.72">1.72 · Active — 5–6 workouts / week</option>
-              <option value="1.90">1.90 · Very active — daily training</option>
+              <option value="1.200">1.200  Sedentary — desk job, no training</option>
+              <option value="1.375" selected>1.375  Light — 1–3 sessions/wk, mostly sitting</option>
+              <option value="1.550">1.550  Moderate — 3–5 sessions/wk, 6–10k steps</option>
+              <option value="1.725">1.725  Active — 6–7 sessions/wk or active job</option>
+              <option value="1.900">1.900  Very active — 2× daily or elite training</option>
             </select>
           </div>
           <p class="params-desc">Height is used for BMI and FFMI. FFMI 25 marks the natural upper bound (Kouri et al., 1995). Activity level scales BMR to full TDEE.</p>
@@ -941,7 +941,8 @@
           <div class="params-example">How to estimate your TDEE
 ──────────────────────────
 
-TDEE = BMR × AF  (Katch-McArdle)
+TDEE = BMR × AF
+(Katch-McArdle, 1975)
 
 BMR = 370 + 21.6 × LBM
 
@@ -949,17 +950,20 @@ LBM (Lean Body Mass)
   LBM = weight × (1 − BF% ÷ 100)
 
 Activity Factor (AF)
-  1.20  Sedentary   (no exercise)
-  1.37  Light       (1–2 / week)
-  1.55  Moderate    (3–4 / week)
-  1.72  Active      (5–6 / week)
-  1.90  Very active (daily)
+  1.200  Sedentary   (desk, no training)
+  1.375  Light       (1–3 sessions/week)
+  1.550  Moderate    (3–5 sessions/week)
+  1.725  Active      (6–7 sessions/week)
+  1.900  Very active (2× daily / athlete)
+
+  When in doubt, choose the lower value.
+  Most gym-goers with desk jobs = Light.
 
 Example — 80 kg · 20% BF · light
-  LBM  = 80 × (1 − 0.20) = 64.0 kg
+  LBM  = 80 × (1 − 0.20)  = 64.0 kg
   BMR  = 370 + 21.6 × 64  = 1 752 kcal
-  AF   = 1.37
-  TDEE = 1 752 × 1.37     = 2 400 kcal</div>
+  AF   = 1.375
+  TDEE = 1 752 × 1.375    = 2 409 kcal</div>
         </div>
 
       </div>
@@ -1006,7 +1010,7 @@ Example — 80 kg · 20% BF · light
 2025-01-01,85.40,24.5
 2025-01-03,85.10,
 2025-01-05,84.80,24.2
-#params,agg=55,tdee=2400;height=175;goalBf=15</div>
+#params,agg=55,tdee=2420;height=175;goalBf=15;actFactor=1.375</div>
           <p class="params-desc" style="margin-top:12px;"><b>date</b> — YYYY-MM-DD (ISO 8601)<br><b>weight</b> — kilograms<br><b>bodyfat</b> — percent, optional per row<br><b>#params</b> — parameter snapshot</p>
         </div>
 
@@ -1020,7 +1024,7 @@ const STORE_KEY = 'telemetrie_v1';
 let DATA = [];   // {date:'YYYY-MM-DD', w:Number, bf:Number|null, type:'real'|'proj'}
 // Physiological constant — never user-configurable (Alpert, 2005).
 const ALPERT = 69;  // kcal / kg fat / day
-let P = { agg:55, tdee:null, height:null, goalBf:15, actFactor:1.37 };
+let P = { agg:55, tdee:null, height:null, goalBf:15, actFactor:1.375 };
 
 // ---------- Persistenz (localStorage — funktioniert auf GitHub Pages, kein Login/Cloud) ----------
 function save(){
@@ -1678,7 +1682,7 @@ function doCalcTdee(){
   if(sbf == null) return false;                   // no BF data — enter TDEE manually
   const lbm    = sw * (1 - sbf / 100);
   const bmr    = Math.round(370 + 21.6 * lbm);
-  const factor = P.actFactor || 1.37;
+  const factor = P.actFactor || 1.375;
   const tdee   = Math.round(bmr * factor);
   const iTdee  = document.getElementById('iTdee');
   if(iTdee){ iTdee.value = tdee; iTdee.dispatchEvent(new Event('input')); }
@@ -2550,7 +2554,7 @@ function syncParamInputs(){
   document.getElementById('iTdee').value    = P.tdee   ?? '';
   document.getElementById('iHeight').value  = P.height ?? '';
   const iAct = document.getElementById('iActFactor');
-  if(iAct) iAct.value = P.actFactor ?? 1.37;
+  if(iAct) iAct.value = P.actFactor ?? 1.375;
   updateParamsPreview();
 }
 
