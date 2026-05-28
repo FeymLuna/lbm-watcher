@@ -623,7 +623,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.1</span></h1>
+    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.2</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -752,20 +752,15 @@
     </div>
   </div>
 
-  <!-- Data -->
+  <!-- Data — compact preview; head opens full-screen modal for actions + format docs -->
   <div class="panel">
-    <div class="head"><h2>Data</h2></div>
-    <div class="statusmsg" id="status"></div>
-    <div class="body">
-      <div class="bar">
-        <button class="btn" id="exportBtn">Export CSV</button>
-        <button class="btn" id="importBtn">Import CSV</button>
-      </div>
-      <!-- accept broadened: mobile pickers sometimes hide .csv when the MIME type
-           isn't exactly "text/csv". Listing the common variants keeps the picker
-           permissive without dropping all filtering on desktop. -->
-      <input type="file" id="fileInput" accept=".csv,text/csv,text/plain,application/vnd.ms-excel" style="display:none;">
-      <div class="bar"><button class="btn danger" id="clearBtn">Clear storage</button></div>
+    <div class="head head-button" id="dataHead" tabindex="0" role="button" aria-haspopup="dialog" aria-expanded="false">
+      <h2>Data</h2>
+      <div class="head-right"><span class="expand-icon">⤢</span></div>
+    </div>
+    <div class="params-peek">
+      <div class="pcell"><span class="pk">Entries</span><span class="pv" id="prevEntries">—</span></div>
+      <div class="pcell"><span class="pk">Last entry</span><span class="pv" id="prevLastEntry" style="font-size:13px;letter-spacing:0;">—</span></div>
     </div>
   </div>
 </div>
@@ -871,9 +866,9 @@
         <!-- Goal Body Fat % -->
         <div class="params-section">
           <div class="slider-wrap">
-            <div class="topline"><span>Goal body fat %</span><b id="goalBfVal">12.0%</b></div>
+            <div class="topline"><span>Goal body fat %</span><b id="goalBfVal">15.0%</b></div>
             <div class="hint"><span style="color:var(--good)">7–15</span> athletic · <span style="color:var(--warn)">16–26</span> acceptable · <span style="color:var(--danger)">≤7 / ≥27</span> dangerous</div>
-            <input type="range" id="iGoalBf" min="1" max="30" value="12" step="0.1">
+            <input type="range" id="iGoalBf" min="1" max="30" value="15" step="0.1">
           </div>
           <p class="params-desc">Your target body-fat percentage. The projection engine steps weight and LBM forward day by day under the Alpert-based deficit until this threshold is crossed — the resulting date and final body weight appear as the cut endpoint on both charts.</p>
         </div>
@@ -932,6 +927,54 @@ Example — 80 kg · 175 cm · 30 y · male · moderate
   </div>
 </div>
 
+<!-- ====================================================================
+     Data fullscreen modal — export / import / clear + CSV format docs.
+     All data operations live here; dashboard panel is read-only preview.
+     ==================================================================== -->
+<div class="modal" id="dataModal" role="dialog" aria-modal="true" aria-labelledby="dataModalTitle" hidden>
+  <div class="modal-backdrop" data-close="1"></div>
+  <div class="modal-sheet">
+    <header class="modal-head">
+      <button class="modal-back" id="dataClose" type="button" aria-label="Back to dashboard"><span aria-hidden="true">←</span></button>
+      <h2 id="dataModalTitle">Data</h2>
+    </header>
+    <div class="modal-body">
+      <div class="params-content">
+
+        <!-- Actions -->
+        <div class="params-section">
+          <div class="params-section-head"><h3>Actions</h3></div>
+          <div class="statusmsg" id="status"></div>
+          <div class="bar" style="margin-bottom:10px;">
+            <button class="btn" id="exportBtn">Export CSV</button>
+            <button class="btn" id="importBtn">Import CSV</button>
+          </div>
+          <!-- accept broadened: mobile pickers sometimes hide .csv when the MIME type
+               isn't exactly "text/csv". Listing common variants keeps the picker permissive. -->
+          <input type="file" id="fileInput" accept=".csv,text/csv,text/plain,application/vnd.ms-excel" style="display:none;">
+          <div class="bar"><button class="btn danger" id="clearBtn">Clear storage</button></div>
+          <p class="params-desc">All data is stored locally in your browser's localStorage — no account, no server, no cloud. Export a backup before clearing; the operation is irreversible.</p>
+        </div>
+
+        <!-- CSV Format -->
+        <div class="params-section">
+          <div class="params-section-head">
+            <h3>CSV Format</h3>
+          </div>
+          <p class="params-desc">The export file is plain UTF-8 CSV with three columns. Dates follow ISO 8601. Body-fat is optional — rows without a measurement export an empty field. The final <b>#params</b> row encodes all current settings and is fully restored on import.</p>
+          <div class="params-example">date,weight,bodyfat
+2025-01-01,85.40,24.5
+2025-01-03,85.10,
+2025-01-05,84.80,24.2
+#params,agg=55,lbmpct=15,tdee=2400;alpert=69;height=175;goalBf=15;buffer=0</div>
+          <p class="params-desc" style="margin-top:12px;"><b>date</b> — YYYY-MM-DD (ISO 8601)<br><b>weight</b> — kilograms<br><b>bodyfat</b> — percent, optional per row<br><b>#params</b> — parameter snapshot; import replaces all data and settings in one step</p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 const STORE_KEY = 'telemetrie_v1';
 let DATA = [];   // {date:'YYYY-MM-DD', w:Number, bf:Number|null, type:'real'|'proj'}
@@ -940,7 +983,7 @@ let DATA = [];   // {date:'YYYY-MM-DD', w:Number, bf:Number|null, type:'real'|'p
 //   buffer = 0 kcal (no safety cushion — Min. intake hugs the Alpert limit exactly)
 // They live on P so persistence/CSV round-trips keep working, but lockInvariants()
 // re-applies them after every load/import so a tampered file can't override them.
-let P = { agg:55, lbmpct:15, tdee:null, alpert:69, height:null, goalBf:12, buffer:0 };
+let P = { agg:55, lbmpct:15, tdee:null, alpert:69, height:null, goalBf:15, buffer:0 };
 function lockInvariants(){ P.alpert = 69; P.buffer = 0; }
 
 // ---------- Persistenz (localStorage — funktioniert auf GitHub Pages, kein Login/Cloud) ----------
@@ -1407,6 +1450,7 @@ function render(){
   // After all DOM writes — celebrate the stripe cells whose values genuinely changed.
   flashChangedValues(_prevStripe);
   updateParamsPreview();
+  updateDataPreview();
 }
 
 // Dashboard zeigt einen Ausschnitt: letzte 8 reale (= 7 vor heute + heute) + 7 Projektionen = 15.
@@ -1577,6 +1621,36 @@ function initHeightToggle(){
   ftBtn.onclick = showFt;
   iFt.oninput   = ftInToCm;
   iIn.oninput   = ftInToCm;
+}
+
+// ----- Data Modal -----
+function openData(){
+  const m = document.getElementById('dataModal');
+  if(!m) return;
+  m.hidden = false;
+  document.body.style.overflow = 'hidden';
+  playModalEnter(m);
+  setTimeout(() => { const c = document.getElementById('dataClose'); if(c) c.focus(); }, 0);
+  document.addEventListener('keydown', dataKeyHandler);
+}
+function closeData(){
+  const m = document.getElementById('dataModal');
+  if(!m || m.hidden) return;
+  m.hidden = true;
+  document.body.style.overflow = '';
+  document.removeEventListener('keydown', dataKeyHandler);
+  const trigger = document.getElementById('dataHead');
+  if(trigger) trigger.focus();
+}
+function dataKeyHandler(e){
+  if(e.key === 'Escape'){ e.preventDefault(); closeData(); }
+}
+function updateDataPreview(){
+  const reals = DATA.filter(d => d.type === 'real');
+  const elE = document.getElementById('prevEntries');
+  const elL = document.getElementById('prevLastEntry');
+  if(elE) elE.textContent = reals.length || '—';
+  if(elL) elL.textContent = reals.length ? reals[reals.length - 1].date : '—';
 }
 
 // ----- Chart-Modal Header Auto-Dim ------------------------------------------
@@ -2456,6 +2530,21 @@ function bind(){
   if(recordsModal){
     // Backdrop click (any element marked data-close) dismisses the modal.
     recordsModal.addEventListener('click', e => { if(e.target.dataset && e.target.dataset.close) closeRecords(); });
+  }
+
+  // Data tile → full-screen modal. Same trigger pattern as Records.
+  const dataHead = document.getElementById('dataHead');
+  if(dataHead){
+    dataHead.addEventListener('click', openData);
+    dataHead.addEventListener('keydown', e => {
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openData(); }
+    });
+  }
+  const dataClose = document.getElementById('dataClose');
+  if(dataClose) dataClose.addEventListener('click', closeData);
+  const dataModal = document.getElementById('dataModal');
+  if(dataModal){
+    dataModal.addEventListener('click', e => { if(e.target.dataset && e.target.dataset.close) closeData(); });
   }
 
   // Parameters tile → full-screen modal. Same trigger pattern as Records.
