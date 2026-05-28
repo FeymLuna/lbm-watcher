@@ -623,7 +623,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.0</span></h1>
+    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.1</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -861,11 +861,11 @@
         <!-- Target Aggressiveness -->
         <div class="params-section">
           <div class="slider-wrap">
-            <div class="topline"><span>Target aggressiveness</span><b id="aggVal">75%</b></div>
+            <div class="topline"><span>Target aggressiveness</span><b id="aggVal">55%</b></div>
             <div class="hint"><span style="color:var(--good)">&lt;60%</span> protects LBM · <span style="color:var(--warn)">60–79%</span> aggressive cut · <span style="color:var(--danger)">≥80%</span> risk zone</div>
-            <input type="range" id="agg" min="0" max="100" value="75" step="1">
+            <input type="range" id="agg" min="0" max="100" value="55" step="1">
           </div>
-          <p class="params-desc">Controls how aggressively you draw from fat stores. The Alpert physiological ceiling (69 kcal / kg fat) is treated as 100%. At 75% your daily target deficit is three-quarters of that ceiling — firm but below the physiological limit. Lower values protect lean body mass; higher values accelerate the cut at greater LBM risk.</p>
+          <p class="params-desc">The 290 ± 25 kJ / kg fat / day figure (Alpert, 2005) defines the theoretical upper bound on adipose lipolysis. The rate-limiting step is hormone-sensitive lipase (HSL), the primary enzyme for intracellular triglyceride hydrolysis in adipocytes.<br><br>This ceiling only applies in a fully fasted state. Any caloric intake elevates insulin, which suppresses HSL via the cAMP–PKA signalling axis: insulin activates phosphodiesterase 3B, lowering cAMP and leaving HSL dephosphorylated and inactive. In a normal eating pattern, postprandial insulin suppression restricts effective fat mobilisation for the majority of waking hours — pushing the realistic daily ceiling well below 69 kcal / kg fat.<br><br>Targeting 100% therefore creates a structural deficit that fat stores cannot fully cover. The shortfall is compensated via gluconeogenesis — catabolism of skeletal muscle protein — which elevates LBM loss disproportionately. Settings below 60% keep the deficit within what adipose tissue can realistically sustain under normal dietary conditions.</p>
         </div>
 
         <!-- Goal Body Fat % -->
@@ -875,7 +875,7 @@
             <div class="hint"><span style="color:var(--good)">7–15</span> athletic · <span style="color:var(--warn)">16–26</span> acceptable · <span style="color:var(--danger)">≤7 / ≥27</span> dangerous</div>
             <input type="range" id="iGoalBf" min="1" max="30" value="12" step="0.1">
           </div>
-          <p class="params-desc">The body fat percentage you are cutting towards. The projection model advances weight and LBM forward day by day until this threshold is reached, then marks the estimated completion date on the chart.</p>
+          <p class="params-desc">Your target body-fat percentage. The projection engine steps weight and LBM forward day by day under the Alpert-based deficit until this threshold is crossed — the resulting date and final body weight appear as the cut endpoint on both charts.</p>
         </div>
 
         <!-- TDEE -->
@@ -885,7 +885,7 @@
             <span class="sub">Total Daily Energy Expenditure</span>
           </div>
           <div class="field"><label>kcal / day</label><input type="text" inputmode="decimal" id="iTdee" placeholder="e.g. 2400"></div>
-          <p class="params-desc">The total calories you burn on an average day including all activity. Target intake and minimum intake are derived directly from this value — without it the calorie cards show "—".</p>
+          <p class="params-desc">The total calories you burn on an average day including all activity. Target intake and minimum intake are derived directly from this value.</p>
           <div class="params-example">How to estimate your TDEE
 ──────────────────────────────────────
 TDEE  =  BMR × Activity Factor
@@ -924,7 +924,7 @@ Example — 80 kg · 175 cm · 30 y · male · moderate
               <div class="field"><label>Inches</label><input type="text" inputmode="decimal" id="iIn" placeholder="9.0"></div>
             </div>
           </div>
-          <p class="params-desc">Used to calculate BMI and FFMI (Fat-Free Mass Index). FFMI = LBM ÷ height². The natural physiological ceiling for drug-free athletes is FFMI 25 (Kouri et al.) — the projection model applies an asymptotic cap at this limit so projections remain biologically plausible.</p>
+          <p class="params-desc">Used to calculate BMI and FFMI (Fat-Free Mass Index). FFMI = LBM ÷ height². FFMI 25 marks the observed upper bound for naturally trained athletes (Kouri et al., 1995) — the projection model applies an asymptotic cap at this limit so projections remain biologically plausible.</p>
         </div>
 
       </div>
@@ -940,7 +940,7 @@ let DATA = [];   // {date:'YYYY-MM-DD', w:Number, bf:Number|null, type:'real'|'p
 //   buffer = 0 kcal (no safety cushion — Min. intake hugs the Alpert limit exactly)
 // They live on P so persistence/CSV round-trips keep working, but lockInvariants()
 // re-applies them after every load/import so a tampered file can't override them.
-let P = { agg:75, lbmpct:15, tdee:null, alpert:69, height:null, goalBf:12, buffer:0 };
+let P = { agg:55, lbmpct:15, tdee:null, alpert:69, height:null, goalBf:12, buffer:0 };
 function lockInvariants(){ P.alpert = 69; P.buffer = 0; }
 
 // ---------- Persistenz (localStorage — funktioniert auf GitHub Pages, kein Login/Cloud) ----------
