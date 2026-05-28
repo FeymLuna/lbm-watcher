@@ -349,12 +349,14 @@
   .input-btn-row .btn   { flex: 1; }
   .btn-accent { background: var(--accent); color: #0b0c08; border-color: var(--accent); font-size: 10px; letter-spacing: 0.12em; white-space: nowrap; padding: 0 8px; }
   .btn-accent:hover { background: #d4de3a; border-color: #d4de3a; }
-  .height-row { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 16px; }
+  .height-row { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 16px; }
   .height-row > .field { flex: 2; margin-bottom: 0; min-width: 0; }
   .height-ft-pair { flex: 2; display: flex; gap: 8px; }
   .height-ft-pair > .field { flex: 1; margin-bottom: 0; min-width: 0; }
-  .height-unit-toggle { flex: 2; display: flex; gap: 4px; }
-  .height-unit-toggle .unit-btn { flex: 1; padding: 10px 8px; }
+  .height-unit-toggle { flex: 2; display: flex; flex-direction: column; gap: 0; }
+  .height-unit-spacer { display: block; font-size: 9px; line-height: 1.5; margin-bottom: 5px; visibility: hidden; pointer-events: none; }
+  .height-unit-btns { display: flex; gap: 4px; }
+  .height-unit-btns .unit-btn { flex: 1; padding: 14px 8px; }
   .params-peek .pcell-btn { display: flex; align-items: center; justify-content: center; padding: 10px 12px; }
   .btn-calc-tdee { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; padding: 8px 12px; border-radius: var(--r); border: 1.5px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background var(--dur) var(--ease), color var(--dur) var(--ease); width: 100%; }
   .btn-calc-tdee:hover { background: var(--accent); color: #0b0c08; }
@@ -645,7 +647,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.10</span></h1>
+    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.11</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -689,8 +691,8 @@
     <div class="cell"><div class="k">Weight trend 7d</div><div class="v" id="sTrend">—<small> kg/wk</small></div></div>
     <div class="cell"><div class="k">BF (smoothed)</div><div class="v" id="sBf">—<small> %</small></div></div>
     <div class="cell"><div class="k">BF trend 7d</div><div class="v" id="sBfTrend">—<small> %/wk</small></div></div>
-    <div class="cell"><div class="k">LBM</div><div class="v" id="sLbm">—<small> kg</small></div></div>
-    <div class="cell"><div class="k">LBM Δ real (smoothed)</div><div class="v" id="sLbmReal">—<small> kg</small></div></div>
+    <div class="cell"><div class="k">LBM (smoothed)</div><div class="v" id="sLbm">—<small> kg</small></div></div>
+    <div class="cell"><div class="k">LBM Δ 7d</div><div class="v" id="sLbmReal">—<small> kg</small></div></div>
     <div class="cell"><div class="k">FFMI</div><div class="v" id="sFfmi">—</div></div>
     <div class="cell"><div class="k">BMI</div><div class="v" id="sBmi">—</div></div>
   </div>
@@ -700,13 +702,13 @@
     <div class="head head-button" id="weightTrendHead" role="button" tabindex="0" aria-label="Open Weight Trend fullscreen view" aria-haspopup="dialog">
       <h2>Weight Trend</h2>
       <span class="head-right">
-        <span class="sub" style="font-size:9px;color:var(--ink-faint);" id="goalInfo">Goal ≤12% BF</span>
+        <span class="sub" style="font-size:9px;color:var(--ink-faint);" id="goalInfo">—</span>
         <span class="expand-icon" aria-hidden="true">⤢</span>
       </span>
     </div>
     <svg id="chart" viewBox="0 0 760 300" preserveAspectRatio="xMidYMid meet"></svg>
     <div class="legend">
-      <span><i style="background:var(--real)"></i>Real (smoothed)</span>
+      <span><i style="background:var(--real)"></i>(smoothed)</span>
       <span><i style="border-top:1px dashed var(--proj);height:0;"></i>Trend</span>
     </div>
   </div>
@@ -722,8 +724,8 @@
     </div>
     <svg id="lbmChart" viewBox="0 0 760 200" preserveAspectRatio="xMidYMid meet"></svg>
     <div class="legend">
-      <span><i style="background:var(--real)"></i>LBM real (smoothed)</span>
-      <span><i style="border-top:1px dashed var(--proj);height:0;"></i>Projection</span>
+      <span><i style="background:var(--real)"></i>LBM (smoothed)</span>
+      <span><i style="border-top:1px dashed var(--proj);height:0;"></i>Trend</span>
       <span><i style="background:var(--line-2);height:8px;width:8px;"></i>Planning band 10–20%</span>
       <span id="lbmVerdict" style="color:var(--ink-dim);"></span>
     </div>
@@ -907,8 +909,11 @@
               <div class="field"><label>(Inches)</label><input type="text" inputmode="decimal" id="iIn" placeholder="9.0"></div>
             </div>
             <div class="unit-toggle height-unit-toggle">
-              <button class="unit-btn active" id="unitCmBtn" type="button">cm</button>
-              <button class="unit-btn" id="unitFtBtn" type="button">ft · in</button>
+              <span class="height-unit-spacer" aria-hidden="true">&nbsp;</span>
+              <div class="height-unit-btns">
+                <button class="unit-btn active" id="unitCmBtn" type="button">cm</button>
+                <button class="unit-btn" id="unitFtBtn" type="button">ft · in</button>
+              </div>
             </div>
           </div>
           <div class="field">
@@ -1433,17 +1438,33 @@ function render(){
     if(aBf!=null && bBf!=null) bfTrend=((aBf-bBf)).toFixed(2);
   }
   $('sBfTrend').innerHTML = bfTrend+'<small> %/wk</small>';
-  $('sBf').innerHTML = (headBf!=null?headBf.toFixed(1):'—')+'<small> %'+(headBfRaw!=null&&Math.abs(headBfRaw-headBf)>=0.1?' · raw '+headBfRaw.toFixed(1):'')+'</small>';
+  $('sBf').innerHTML = (headBf!=null?headBf.toFixed(1):'—')+'<small> %</small>';
   $('sLbm').innerHTML = (r&&r.lbm?r.lbm.toFixed(2):'—')+'<small> kg</small>';
-  // Reale LBM-Δ + Trend-Anteil aus realLbmStats(). Farbe kommt aus lbmLossStatus.
-  const lbmStats = realLbmStats();
-  if(lbmStats.deltaLbm != null){
-    const sign = lbmStats.deltaLbm>=0?'+':'';
-    $('sLbmReal').innerHTML = `${sign}${lbmStats.deltaLbm.toFixed(2)}<small> kg${lbmStats.warmup?' ⚠':''}</small>`;
-    $('sLbmReal').title = lbmStats.warmup ? 'Settling phase (<3 weeks) — not yet meaningful' : 'Smoothed real LBM trend since measurement start';
+  // LBM Δ 7d: smoothed LBM difference between last and 7th-to-last real entry.
+  const lbmStats   = realLbmStats();
+  const lbmSeries  = realLbmSeries();
+  let lbmDelta7 = null;
+  if(lbmSeries.length >= 8){
+    lbmDelta7 = lbmSeries[lbmSeries.length-1].lbm - lbmSeries[lbmSeries.length-8].lbm;
+  } else if(lbmSeries.length >= 2){
+    lbmDelta7 = lbmSeries[lbmSeries.length-1].lbm - lbmSeries[0].lbm;
+  }
+  if(lbmDelta7 != null){
+    const sign = lbmDelta7>=0?'+':'';
+    $('sLbmReal').innerHTML = `${sign}${lbmDelta7.toFixed(2)}<small> kg</small>`;
+    $('sLbmReal').title = lbmSeries.length >= 8 ? 'LBM change over last 7 entries (smoothed)' : 'LBM change since first entry (smoothed, <8 entries)';
   } else { $('sLbmReal').innerHTML='—<small> kg</small>'; }
   $('sBmi').textContent  = (r&&r.bmi!=null)?r.bmi.toFixed(2):'—';
   $('sFfmi').textContent = (r&&r.ffmi)?r.ffmi.toFixed(2):'—';
+
+  // Weight delta since first entry — shown in the Weight Trend sub-header (dashboard).
+  if(reals.length >= 2){
+    const firstW = smooth(DATA.indexOf(reals[0])) ?? reals[0].w;
+    const wDelta = (sW ?? 0) - firstW;
+    $('goalInfo').textContent = `Δ W ${wDelta>=0?'+':''}${wDelta.toFixed(2)} kg`;
+  } else {
+    $('goalInfo').textContent = '—';
+  }
 
   // Health-status coloring on the stripe — drives the .good/.warn/.danger classes via CSS.
   setCellStatus('sBmi',     bmiStatus(r && r.bmi));
@@ -1461,7 +1482,7 @@ function render(){
   });
 
   if(reals.length){
-    document.getElementById('countInfo').textContent = reals.length+' real · '+reals[0].date+' → '+reals[reals.length-1].date;
+    document.getElementById('countInfo').textContent = reals.length+' entries · '+reals[0].date+' → '+reals[reals.length-1].date;
   }
   $('goalBfInfo').textContent = (+P.goalBf).toFixed(1);
 
@@ -1509,7 +1530,7 @@ function renderTable(){
 
   // Count-Info beidseitig synchron halten.
   if(reals.length){
-    const txt = reals.length+' real · '+reals[0].date+' → '+reals[reals.length-1].date;
+    const txt = reals.length+' entries · '+reals[0].date+' → '+reals[reals.length-1].date;
     const ci = document.getElementById('countInfo');     if(ci) ci.textContent = txt;
     const cf = document.getElementById('countInfoFull'); if(cf) cf.textContent = txt;
   }
@@ -2402,9 +2423,9 @@ function renderLbmChart(opts){
   const realFrac     = stats.realFrac;
   const totalLoss    = stats.totalLoss;
   const realLbmDelta = stats.deltaLbm;
-  const headerText = (realFrac != null && totalLoss != null && totalLoss > 0.5)
-    ? `Real LBM share ≈ ${(realFrac*100).toFixed(0)}% · Δ LBM ${realLbmDelta>=0?'+':''}${realLbmDelta.toFixed(2)} kg`
-    : `Δ LBM ${realLbmDelta>=0?'+':''}${realLbmDelta.toFixed(2)} kg · share still unstable`;
+  const headerText   = realLbmDelta != null
+    ? `Δ LBM ${realLbmDelta>=0?'+':''}${realLbmDelta.toFixed(2)} kg`
+    : '—';
 
   if(compact){
     $('lbmGuardInfo').textContent = headerText;
