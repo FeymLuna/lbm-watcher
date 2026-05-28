@@ -253,7 +253,9 @@
   .modal-back:focus-visible { outline: 2px solid var(--accent-dim); outline-offset: 2px; }
   .modal-body { flex: 1; overflow: auto; padding: 0; -webkit-overflow-scrolling: touch; }
   /* Full table inside the modal always shows every column; horizontal scroll on narrow viewports. */
-  .modal-body .tablewrap { max-height: none; overflow-x: auto; border-top: none; }
+  /* tablewrap inside modal: let modal-body own both scroll axes so position:sticky on <th> works */
+  .modal-body .tablewrap { max-height: none; overflow: visible; border-top: none; }
+  #recordsModal .modal-body { overflow-x: auto; }
   .modal-body table { font-size: 12px; }
   .modal-body th, .modal-body td { padding: 9px 12px; }
   @media (max-width: 560px) {
@@ -441,6 +443,12 @@
 
   .panel { box-shadow: inset 0 1px 0 rgba(255,255,255,0.025); }
 
+  /* Dot-grid on every surface — same rhythm as the body background */
+  .panel, .modal-sheet, .stripe {
+    background-image: radial-gradient(circle, rgba(255,255,255,0.028) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
   /* Stripe cells — hover wash + smoother transitions on value color */
   .stripe .cell { transition: background var(--dur) var(--ease); position: relative; }
   .stripe .cell:hover { background: var(--panel-2); }
@@ -588,28 +596,28 @@
     position: absolute;
     z-index: 5;
     pointer-events: none;
-    background: rgba(20, 22, 28, 0.92);
-    backdrop-filter: blur(10px) saturate(140%);
-    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    background: rgba(20, 22, 28, 0.94);
+    backdrop-filter: blur(12px) saturate(140%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
     border: 1px solid var(--line-2);
-    border-radius: 8px;
-    padding: 10px 14px;
+    border-radius: 10px;
+    padding: 12px 16px;
     font-family: var(--mono);
-    font-size: 12px;
+    font-size: 14px;
     color: var(--ink);
     box-shadow: 0 12px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 1px rgba(0,0,0,0.6);
     opacity: 0;
     transform: translateY(4px) scale(0.98);
     transition: opacity var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
     white-space: nowrap;
-    min-width: 140px;
+    min-width: 160px;
   }
   .chart-tooltip.show { opacity: 1; transform: translateY(0) scale(1); }
-  .chart-tooltip .tt-date { font-size: 9.5px; color: var(--ink-faint); letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 8px; font-weight: 600; }
+  .chart-tooltip .tt-date { font-size: 11px; color: var(--ink-faint); letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 9px; font-weight: 600; }
   .chart-tooltip .tt-date .tt-proj { color: var(--proj); margin-left: 6px; font-style: normal; opacity: 0.85; }
-  .chart-tooltip .tt-row { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; padding: 2px 0; }
-  .chart-tooltip .tt-key { color: var(--ink-faint); font-size: 10px; letter-spacing: 0.06em; }
-  .chart-tooltip .tt-val { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .chart-tooltip .tt-row { display: flex; justify-content: space-between; gap: 20px; align-items: baseline; padding: 3px 0; }
+  .chart-tooltip .tt-key { color: var(--ink-faint); font-size: 12px; letter-spacing: 0.06em; }
+  .chart-tooltip .tt-val { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; font-size: 14px; }
 
   /* Crosshair styling — SVG <g class="hover-overlay"> injected by render */
   .hover-overlay .hover-vline { transition: opacity var(--dur-fast) var(--ease); }
@@ -647,7 +655,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.11</span></h1>
+    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.12</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -919,11 +927,11 @@
           <div class="field">
             <label>Activity level</label>
             <select id="iActFactor">
-              <option value="1.200">1.200  Sedentary — desk job, no training</option>
-              <option value="1.375" selected>1.375  Light — 1–3 sessions/wk, mostly sitting</option>
-              <option value="1.550">1.550  Moderate — 3–5 sessions/wk, 6–10k steps</option>
-              <option value="1.725">1.725  Active — 6–7 sessions/wk or active job</option>
-              <option value="1.900">1.900  Very active — 2× daily or elite training</option>
+              <option value="1.200">Sedentary — desk job, no training</option>
+              <option value="1.375" selected>Light — 1–3 sessions/wk, mostly sitting</option>
+              <option value="1.550">Moderate — 3–5 sessions/wk, 6–10k steps</option>
+              <option value="1.725">Active — 6–7 sessions/wk or active job</option>
+              <option value="1.900">Very active — 2× daily or elite training</option>
             </select>
           </div>
           <p class="params-desc">Height is used for BMI and FFMI. FFMI 25 marks the natural upper bound (Kouri et al., 1995). Activity level scales BMR to full TDEE.</p>
@@ -1966,10 +1974,30 @@ let _weightChart = null;
 let _lbmChart    = null;
 
 // renderChart — zwei Render-Modi für den Weight-Trend-Chart:
+// Vertical Monday-aligned week lines for fullscreen charts.
+// Returns an SVG string of faint gridlines, one per Monday in [minX, maxX].
+function mondayGridSvg(minX, maxX, sx, padT, H, padB){
+  let g = '';
+  const start = new Date(minX);
+  const dow = start.getDay(); // 0=Sun, 1=Mon, …
+  const daysToMon = dow === 1 ? 0 : dow === 0 ? 1 : 8 - dow;
+  const firstMon = new Date(start);
+  firstMon.setDate(firstMon.getDate() + daysToMon);
+  firstMon.setHours(0, 0, 0, 0);
+  let d = new Date(firstMon);
+  while(+d <= maxX){
+    if(+d > minX){
+      const x = sx(+d).toFixed(1);
+      g += `<line x1="${x}" y1="${padT}" x2="${x}" y2="${H-padB}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
+    }
+    d.setDate(d.getDate() + 7);
+  }
+  return g;
+}
+
 //   opts.compact = true  (default)  → Dashboard-Tile (760×300), schlank
 //   opts.compact = false             → Vollbild-Modul (1280×640), mit BMI-Schwellen (18.5/25/30),
-//                                       Today-Marker, mehr X-Labels, Projektions-End-Annotation,
-//                                       Live-Stats im Modal-Header, Hover-Crosshair, Tooltip
+//                                       Today-Marker, Start+End X-Labels + 7d-Raster, Tooltip
 function renderChart(opts){
   opts = opts || {};
   const compact = opts.compact !== false;
@@ -1987,8 +2015,6 @@ function renderChart(opts){
   const reals = DATA.filter(d=>d.type==='real').map((d,i)=>({...d, sw:smooth(DATA.indexOf(d))}));
   const proj  = buildProjection();
   // Korridor: 10% (optimistisch, kürzere Strecke) vs 20% (pessimistisch, länger).
-  const bandOpt = corridorBand(10);
-  const bandPes = corridorBand(20);
   const series  = [...reals.map(d=>({x:d.date,y:d.sw||d.w})), ...proj.map(d=>({x:d.date,y:d.w}))];
 
   if(series.length<2){
@@ -2046,15 +2072,6 @@ function renderChart(opts){
       g+=`<line x1="${(padL-5).toFixed(1)}" y1="${yy.toFixed(1)}" x2="${padL}" y2="${yy.toFixed(1)}" stroke="var(--axis)" opacity="0.35" stroke-width="1"/>`;
     }
   });
-
-  // Korridor-Band (zwischen 10%- und 20%-Szenario) — gefüllte Zone, nach hinten.
-  // [Bug-fix v1.4.1] vorher wurde p.y verwendet; corridorBand liefert aber .w, daher rendert
-  // das Band jetzt erst korrekt.
-  if(bandOpt.length && bandPes.length){
-    const top = bandOpt.map(p=>`${sx(+new Date(p.date)).toFixed(1)},${sy(p.w).toFixed(1)}`);
-    const bot = bandPes.slice().reverse().map(p=>`${sx(+new Date(p.date)).toFixed(1)},${sy(p.w).toFixed(1)}`);
-    g+=`<polygon points="${top.concat(bot).join(' ')}" fill="var(--ink)" fill-opacity="0.06" stroke="none"/>`;
-  }
 
   // Goal-Linie — errechnetes Zielgewicht bei Ziel-BF%. Klasse für Entrance-Sweep.
   const gy = sy(goalW);
@@ -2119,20 +2136,13 @@ function renderChart(opts){
     </g>`;
   }
 
-  // X-Achsen-Labels
-  const xLabels = compact
-    ? [series[0], series[Math.floor(series.length/2)], series[series.length-1]]
-    : (() => {
-        const n = 6;
-        const labels = [];
-        for(let i=0; i<n; i++){
-          const t = minX + (maxX - minX) * i / (n-1);
-          labels.push({ x: new Date(t).toISOString().slice(0,10) });
-        }
-        return labels;
-      })();
+  // 7-day Monday grid (fullscreen only) — drawn before X labels so labels render on top
+  if(!compact) g += mondayGridSvg(minX, maxX, sx, padT, H, padB);
+
+  // X-Achsen-Labels — nur Start- und Enddatum, kein Mittelpunkt
+  const xLabels = [series[0], series[series.length-1]];
   xLabels.forEach((s, i) => {
-    const anchor = compact ? 'middle' : (i===0 ? 'start' : (i===xLabels.length-1 ? 'end' : 'middle'));
+    const anchor = i===0 ? 'start' : 'end';
     const yPos = compact ? H-8 : H-padB+fs.x+6;
     g+=`<text x="${sx(+new Date(s.x))}" y="${yPos}" fill="var(--axis)" font-size="${fs.x}" text-anchor="${anchor}">${fmtD(s.x)}</text>`;
   });
@@ -2257,17 +2267,16 @@ function renderLbmChart(opts){
     { ffmi: 25, color: 'var(--danger)', label: 'FFMI 25 · cap' },
   ] : [];
 
+  // Compact: Y-Range nur aus echten LBM- und Projektions-Werten — Bänder breiten die Skala
+  // unnötig auf. Vollbild: Bänder + FFMI-Schwellen für vollständige Lesehilfe.
   const allLbm = [
     ...lbmS.map(p=>p.lbm),
     ...projLbm.map(p=>p.lbm),
-    ...band10.map(p=>p.lbm),
-    ...band20.map(p=>p.lbm),
+    ...(compact ? [] : [...band10.map(p=>p.lbm), ...band20.map(p=>p.lbm)]),
   ];
   if(!compact && heightM){
-    // Vollbild: alle FFMI-Schwellen in die Y-Skala einbeziehen — sie definieren die Lesehilfe.
     ffmiLines.forEach(t => allLbm.push(t.ffmi * heightM * heightM));
   } else if(haveCap && projLbm.length){
-    // Compact: Cap nur einbeziehen, wenn die Projektion sich der Decke nähert.
     const projMax = Math.max(...projLbm.map(p=>p.lbm));
     if(projMax > startLbm * 0.98) allLbm.push(maxLbm);
   }
@@ -2387,20 +2396,14 @@ function renderLbmChart(opts){
     </g>`;
   }
 
-  // X-Achsen-Labels
-  const xLabels = compact
-    ? (projLbm.length ? [lbmS[0], lbmS[lbmS.length-1], projLbm[projLbm.length-1]] : [lbmS[0], lbmS[lbmS.length-1]])
-    : (() => {
-        const labels = [];
-        const n = 6;
-        for(let i=0; i<n; i++){
-          const t = minX + (maxX - minX) * i / (n-1);
-          labels.push({ date: new Date(t).toISOString().slice(0,10) });
-        }
-        return labels;
-      })();
+  // 7-day Monday grid (fullscreen only)
+  if(!compact) g += mondayGridSvg(minX, maxX, sx, padT, H, padB);
+
+  // X-Achsen-Labels — Start + End only; compact removes today when projection exists
+  const xEndLabel = projLbm.length ? projLbm[projLbm.length-1] : lbmS[lbmS.length-1];
+  const xLabels = [lbmS[0], xEndLabel];
   xLabels.forEach((p, i) => {
-    const anchor = i===0 ? 'start' : (i===xLabels.length-1 ? 'end' : 'middle');
+    const anchor = i===0 ? 'start' : 'end';
     g+=`<text x="${sx(+new Date(p.date))}" y="${H-padB+fs.x+6}" fill="var(--axis)" font-size="${fs.x}" text-anchor="${anchor}">${fmtD(p.date)}</text>`;
   });
 
