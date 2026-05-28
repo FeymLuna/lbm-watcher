@@ -327,8 +327,11 @@
   /* ===== Parameters fullscreen modal ===== */
   #paramsModal .modal-body { padding: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .params-content { padding: 0 max(22px, env(safe-area-inset-right)) 48px max(22px, env(safe-area-inset-left)); max-width: 680px; margin: 0 auto; }
-  .params-section { padding: 24px 0; border-bottom: 1px solid var(--line-2); }
-  .params-section:last-child { border-bottom: none; }
+  .params-section { padding: 20px; background: var(--panel); border: 1px solid var(--line-2); border-radius: var(--r); margin-bottom: 10px; }
+  .params-section:last-child { margin-bottom: 0; }
+  .params-peek .pcell.good   .pv { color: var(--good); }
+  .params-peek .pcell.warn   .pv { color: var(--warn); }
+  .params-peek .pcell.danger .pv { color: var(--danger); }
   .params-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
   .params-section-head h3 { font-size: 10px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink); }
   .params-section-head .sub { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); font-family: var(--mono); }
@@ -624,7 +627,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.3</span></h1>
+    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.4</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -882,26 +885,21 @@
           </div>
           <div class="field"><label>kcal / day</label><input type="text" inputmode="decimal" id="iTdee" placeholder="e.g. 2400"></div>
           <p class="params-desc">The total calories you burn on an average day including all activity. Target intake and minimum intake are derived directly from this value.</p>
-          <div class="params-example">How to estimate your TDEE
-──────────────────────────────────────
-TDEE  =  BMR × Activity Factor
+          <div class="params-example">TDEE  =  BMR × Activity Factor
 
-BMR (Mifflin-St Jeor, male)
-  BMR = 10 × kg + 6.25 × cm − 5 × age + 5
-
-BMR (Mifflin-St Jeor, female)
-  BMR = 10 × kg + 6.25 × cm − 5 × age − 161
+BMR (Mifflin-St Jeor)
+  male    = 10×kg + 6.25×cm − 5×age + 5
+  female  = 10×kg + 6.25×cm − 5×age − 161
 
 Activity factors
-  1.20 · Sedentary   (desk job, little or no exercise)
-  1.37 · Light       (1–3 workouts / week)
-  1.55 · Moderate    (3–5 workouts / week)
-  1.72 · Active      (6–7 workouts / week)
-  1.90 · Very active (physical job + daily training)
+  1.20 · Sedentary   (no exercise)
+  1.37 · Light       (1–2 workouts / week)
+  1.55 · Moderate    (3–4 workouts / week)
+  1.72 · Active      (5–6 workouts / week)
+  1.90 · Very active (daily training)
 
 Example — 80 kg · 175 cm · 30 y · male · moderate
-  BMR  = 10×80 + 6.25×175 − 5×30 + 5  =  1 749 kcal
-  TDEE = 1 749 × 1.55                  ≈  2 711 kcal</div>
+  BMR = 1 749 kcal  ·  TDEE ≈ 2 711 kcal</div>
         </div>
 
         <!-- Height -->
@@ -968,7 +966,7 @@ Example — 80 kg · 175 cm · 30 y · male · moderate
 2025-01-03,85.10,
 2025-01-05,84.80,24.2
 #params,agg=55,tdee=2400;height=175;goalBf=15</div>
-          <p class="params-desc" style="margin-top:12px;"><b>date</b> — YYYY-MM-DD (ISO 8601)<br><b>weight</b> — kilograms<br><b>bodyfat</b> — percent, optional per row<br><b>#params</b> — parameter snapshot; import replaces all data and settings in one step</p>
+          <p class="params-desc" style="margin-top:12px;"><b>date</b> — YYYY-MM-DD (ISO 8601)<br><b>weight</b> — kilograms<br><b>bodyfat</b> — percent, optional per row<br><b>#params</b> — parameter snapshot</p>
         </div>
 
       </div>
@@ -1575,10 +1573,18 @@ function paramsKeyHandler(e){
 }
 function updateParamsPreview(){
   const el = id => document.getElementById(id);
-  if(el('prevAgg'))    el('prevAgg').textContent    = P.agg    != null ? P.agg + '%'                  : '—';
-  if(el('prevGoalBf')) el('prevGoalBf').textContent = P.goalBf != null ? (+P.goalBf).toFixed(1) + '%' : '—';
-  if(el('prevTdee'))   el('prevTdee').textContent   = P.tdee   != null ? P.tdee + ' kcal'             : '—';
-  if(el('prevHeight')) el('prevHeight').textContent = P.height != null ? P.height + ' cm'             : '—';
+  const setColored = (id, text, status) => {
+    const e = el(id); if(!e) return;
+    e.textContent = text;
+    const cell = e.closest('.pcell'); if(!cell) return;
+    cell.classList.remove('good','warn','danger');
+    if(status) cell.classList.add(status);
+  };
+  const aggSt = P.agg < 60 ? 'good' : P.agg < 80 ? 'warn' : 'danger';
+  setColored('prevAgg',    P.agg    != null ? P.agg + '%'                  : '—', aggSt);
+  setColored('prevGoalBf', P.goalBf != null ? (+P.goalBf).toFixed(1) + '%' : '—', bfStatus(P.goalBf));
+  if(el('prevTdee'))   el('prevTdee').textContent   = P.tdee   != null ? P.tdee + ' kcal' : '—';
+  if(el('prevHeight')) el('prevHeight').textContent = P.height != null ? P.height + ' cm' : '—';
 }
 function initHeightToggle(){
   const cmBtn   = document.getElementById('unitCmBtn');
