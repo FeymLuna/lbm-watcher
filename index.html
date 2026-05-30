@@ -153,7 +153,11 @@
   tr.proj td { color: var(--proj); }
   tr.real td { color: var(--real); }
   tr:hover td { background: var(--panel-2); }
-  .del { color: var(--ink-faint); cursor: pointer; padding: 0 6px; font-size: 13px; }
+  /* Delete button — red-bordered, fullscreen only */
+  .del { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: var(--r); border: 1px solid var(--danger); color: var(--danger); cursor: pointer; font-size: 11px; font-family: var(--mono); transition: background .15s ease; }
+  .del:hover { background: rgba(242,115,77,0.12); }
+  /* Hide delete column on dashboard preview — prevent accidental taps */
+  #tbl th:last-child, #tbl td:last-child { display: none; }
   .del:hover { color: var(--danger); }
   .tag { font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase; padding: 1px 5px; border: 1px solid var(--line-2); border-radius: 3px; color: var(--ink-faint); }
 
@@ -645,8 +649,8 @@
   .entry-row .field:first-child  { flex: 1.4; }
   .entry-row .field:nth-child(2) { flex: 1; }
   .entry-row .field:nth-child(3) { flex: 0.8; }
-  .entry-row-remove { width: 32px; height: 42px; flex-shrink: 0; background: transparent; border: 1px solid var(--line-2); color: var(--ink-faint); border-radius: var(--r); font-family: var(--mono); font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: color .15s ease, border-color .15s ease; -webkit-tap-highlight-color: transparent; }
-  .entry-row-remove:hover { color: var(--danger); border-color: var(--danger); }
+  .entry-row-remove { width: 32px; height: 42px; flex-shrink: 0; background: transparent; border: 1px solid var(--danger); color: var(--danger); border-radius: var(--r); font-family: var(--mono); font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s ease; -webkit-tap-highlight-color: transparent; }
+  .entry-row-remove:hover { background: rgba(242,115,77,0.12); }
   .btn-add-row { width: 38px; height: 38px; background: transparent; border: 1.5px solid var(--accent); color: var(--accent); border-radius: 50%; font-family: var(--mono); font-size: 22px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s ease, color .15s ease; -webkit-tap-highlight-color: transparent; }
   .btn-add-row:hover { background: var(--accent); color: #0b0c08; }
 
@@ -666,7 +670,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass · Watcher <span class="ver">v1.10.1</span></h1>
+    <h1>Lean Body Mass · Watcher <span class="ver">v1.10.2</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -877,7 +881,7 @@
     <div class="modal-body">
       <div class="tablewrap">
         <table id="tblFull">
-          <thead><tr><th>Date</th><th>Wt.</th><th>BF%</th><th>BF~</th><th>LBM</th><th>FFMI</th><th>BMI</th><th>Target Def.</th><th>Target In</th><th>Min. In</th><th></th></tr></thead>
+          <thead><tr><th>Date</th><th>Day</th><th>Wt.</th><th>Wt.~</th><th>BF%</th><th>BF~</th><th>LBM</th><th>FFMI</th><th>BMI</th><th>Target Def.</th><th>Target In</th><th>Min. In</th><th></th></tr></thead>
           <tbody id="tbodyFull"></tbody>
         </table>
       </div>
@@ -906,7 +910,7 @@
             <div class="hint"><span style="color:var(--good)">&lt;60%</span> protects LBM · <span style="color:var(--warn)">60–79%</span> aggressive cut · <span style="color:var(--danger)">≥80%</span> risk zone</div>
             <input type="range" id="agg" min="0" max="100" value="55" step="1">
           </div>
-          <p class="params-desc">The 290 ± 25 kJ / kg fat / day figure (Alpert, 2005) defines the theoretical upper bound on adipose lipolysis. The rate-limiting step is hormone-sensitive lipase (HSL), the primary enzyme for intracellular triglyceride hydrolysis in adipocytes.<br><br>This ceiling only applies in a fully fasted state. Any caloric intake elevates insulin, which suppresses HSL via the cAMP–PKA signalling axis: insulin activates phosphodiesterase 3B, lowering cAMP and leaving HSL dephosphorylated and inactive. In a normal eating pattern, postprandial insulin suppression restricts effective fat mobilisation for the majority of waking hours — pushing the realistic daily ceiling well below 69 kcal / kg fat.<br><br>Targeting 100% therefore creates a structural deficit that fat stores cannot fully cover. The shortfall is compensated via gluconeogenesis — catabolism of skeletal muscle protein — which elevates LBM loss disproportionately. Settings below 60% keep the deficit within what adipose tissue can realistically sustain under normal dietary conditions.</p>
+          <p class="params-desc">The 290 ± 25 kJ / kg fat / day figure (Alpert, 2005) defines the theoretical upper bound on adipose lipolysis. The rate-limiting step is hormone-sensitive lipase (HSL), the primary enzyme for intracellular triglyceride hydrolysis in adipocytes.<br><br>This ceiling only applies in a fully fasted state. Any caloric intake elevates insulin, which suppresses HSL via the cAMP–PKA signalling axis: insulin activates phosphodiesterase 3B, lowering cAMP and leaving HSL dephosphorylated and inactive. In a normal eating pattern, postprandial insulin suppression restricts effective fat mobilisation for most waking hours, pushing the realistic daily ceiling well below 69 kcal / kg fat.<br><br>Targeting 100% therefore creates a structural deficit that fat stores cannot fully cover. The gap is filled through gluconeogenesis (catabolism of skeletal muscle protein), which drives disproportionate LBM loss. Settings below 60% keep the deficit within what adipose tissue can realistically sustain under normal dietary conditions.</p>
         </div>
 
         <!-- Goal Body Fat % -->
@@ -916,7 +920,7 @@
             <div class="hint"><span style="color:var(--good)">7–15</span> athletic · <span style="color:var(--warn)">16–26</span> acceptable · <span style="color:var(--danger)">≤7 / ≥27</span> dangerous</div>
             <input type="range" id="iGoalBf" min="1" max="30" value="15" step="0.1">
           </div>
-          <p class="params-desc">Your target body-fat percentage. The projection engine steps weight and LBM forward day by day under the Alpert-based deficit until this threshold is crossed — the resulting date and final body weight appear as the cut endpoint on both charts.</p>
+          <p class="params-desc">Your target body-fat %. Weight and LBM are projected forward daily under the Alpert deficit until this threshold is reached. The resulting date and weight become the cut endpoint shown on both charts.</p>
         </div>
 
         <!-- Personal — height + activity level for FFMI and TDEE -->
@@ -931,7 +935,7 @@
               <div class="field"><label>in</label><input type="text" inputmode="decimal" id="iIn" placeholder="9.0"></div>
             </div>
             <div class="unit-toggle height-unit-toggle">
-              <span class="height-unit-spacer" aria-hidden="true">&nbsp;</span>
+              <span class="height-unit-spacer" style="visibility:visible;color:var(--ink-faint);letter-spacing:0.14em;text-transform:uppercase;">System</span>
               <div class="height-unit-btns">
                 <button class="unit-btn active" id="unitCmBtn" type="button">Metric</button>
                 <button class="unit-btn" id="unitFtBtn" type="button">Imperial</button>
@@ -941,11 +945,11 @@
           <div class="field">
             <label>Activity level</label>
             <select id="iActFactor">
-              <option value="1.200">Sedentary — desk job, no training</option>
-              <option value="1.375" selected>Light — 1–3 sessions/wk, mostly sitting</option>
-              <option value="1.550">Moderate — 3–5 sessions/wk, 6–10k steps</option>
-              <option value="1.725">Active — 6–7 sessions/wk or active job</option>
-              <option value="1.900">Very active — 2× daily or elite training</option>
+              <option value="1.200">Sedentary · desk job, no training</option>
+              <option value="1.375" selected>Light · 1–3 sessions/wk, mostly sitting</option>
+              <option value="1.550">Moderate · 3–5 sessions/wk, 6–10k steps</option>
+              <option value="1.725">Active · 6–7 sessions/wk or physical job</option>
+              <option value="1.900">Very active · 2× daily or elite training</option>
             </select>
           </div>
           <p class="params-desc">Height is used for BMI and FFMI. FFMI 25 marks the natural upper bound (Kouri et al., 1995). Activity level scales BMR to full TDEE.</p>
@@ -964,7 +968,7 @@
               <button class="btn btn-accent" id="calcTdeeBtn" type="button">Calculate TDEE</button>
             </div>
           </div>
-          <p class="params-desc">Total calories burned on an average day including all activity. Enter manually or use Calculate TDEE — applies Katch-McArdle to today's smoothed LBM, which is more accurate than weight-only formulas for people tracking body composition.</p>
+          <p class="params-desc">Total daily calories including all activity. Enter a value manually, or press Calculate TDEE to run Katch-McArdle against today's smoothed LBM. More accurate than weight-only estimates when body composition is tracked.</p>
           <div class="params-example">How to estimate your TDEE
 ──────────────────────────
 
@@ -986,7 +990,7 @@ Activity Factor (AF)
   When in doubt, choose the lower value.
   Most gym-goers with desk jobs = Light.
 
-Example — 80 kg · 20% BF · light
+Example: 80 kg · 20% BF · light
   LBM  = 80 × (1 − 0.20)  = 64.0 kg
   BMR  = 370 + 21.6 × 64  = 1 752 kcal
   AF   = 1.375
@@ -1024,7 +1028,7 @@ Example — 80 kg · 20% BF · light
                isn't exactly "text/csv". Listing common variants keeps the picker permissive. -->
           <input type="file" id="fileInput" accept=".csv,text/csv,text/plain,application/vnd.ms-excel" style="display:none;">
           <div class="bar"><button class="btn danger" id="clearBtn">Clear storage</button></div>
-          <p class="params-desc">All data is stored locally in your browser's localStorage — no account, no server, no cloud. Export a backup before clearing; the operation is irreversible.</p>
+          <p class="params-desc">Everything stays in your browser's localStorage. No server, no account, no cloud. Export a backup before clearing; there's no undo.</p>
         </div>
 
         <!-- CSV Format -->
@@ -1032,13 +1036,13 @@ Example — 80 kg · 20% BF · light
           <div class="params-section-head">
             <h3>CSV Format</h3>
           </div>
-          <p class="params-desc">The export file is plain UTF-8 CSV with three columns. Dates follow ISO 8601. Body-fat is optional — rows without a measurement export an empty field. The final <b>#params</b> row encodes all current settings and is fully restored on import.</p>
+          <p class="params-desc">Plain UTF-8 CSV, three columns. Dates are ISO 8601. BF% is optional per row and exports as an empty field when absent. The last <b>#params</b> row stores all settings and is restored on import.</p>
           <div class="params-example">date,weight,bodyfat
 2025-01-01,85.40,24.5
 2025-01-03,85.10,
 2025-01-05,84.80,24.2
 #params,agg=55,tdee=2420;height=175;goalBf=15;actFactor=1.375</div>
-          <p class="params-desc" style="margin-top:12px;"><b>date</b> — YYYY-MM-DD (ISO 8601)<br><b>weight</b> — kilograms<br><b>bodyfat</b> — percent, optional per row<br><b>#params</b> — parameter snapshot</p>
+          <p class="params-desc" style="margin-top:12px;"><b>date</b>: YYYY-MM-DD (ISO 8601)<br><b>weight</b>: kilograms<br><b>bodyfat</b>: percent, optional per row<br><b>#params</b>: settings snapshot</p>
         </div>
 
       </div>
@@ -1066,7 +1070,7 @@ Example — 80 kg · 20% BF · light
             <button class="btn-add-row" id="addRowBtn" type="button" aria-label="Add row">+</button>
           </div>
           <button class="btn" id="batchAddBtn" style="margin-top:8px;">Add</button>
-          <p class="params-desc" style="margin-top:18px;"><b>Batch entry</b> — fill in multiple days at once. Each row represents one measurement. Pressing <b>+</b> appends a new row with the date auto-set to the following day. Weight is required per row; BF% is optional and falls back to the last known value. Rows with no weight are silently skipped. An entry for an existing date is overwritten.</p>
+          <p class="params-desc" style="margin-top:18px;">Fill in several days at once. Each row is one measurement. Press <b>+</b> to add a row; the date steps forward by one day automatically. Weight is required, BF% is optional. Rows with no weight are skipped. Existing entries for the same date get overwritten.</p>
         </div>
       </div>
     </div>
@@ -1604,7 +1608,7 @@ function renderTable(){
   const fullRows    = [...DATA, ...proj];
 
   renderRows(document.getElementById('tbody'),     previewRows);
-  renderRows(document.getElementById('tbodyFull'), fullRows);
+  renderRows(document.getElementById('tbodyFull'), fullRows, {isFull: true});
 
   // Count-Info beidseitig synchron halten.
   if(reals.length){
@@ -1630,27 +1634,33 @@ function renderTable(){
   }
 }
 
-function renderRows(tbody, rows){
+const DOW_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function renderRows(tbody, rows, opts){
   if(!tbody) return;
+  const isFull = opts && opts.isFull;
+  const cols   = isFull ? 13 : 11;
   tbody.innerHTML = '';
   if(rows.length === 0){
-    // Empty-state row — spans all 11 columns; hidden cols on mobile don't affect colspan.
     const tr = document.createElement('tr');
     tr.className = 'empty-row';
-    tr.innerHTML = `<td colspan="11"><div class="empty-state-inline"><div>NO DATA YET</div></div></td>`;
+    tr.innerHTML = `<td colspan="${cols}"><div class="empty-state-inline"><div>NO DATA YET</div></div></td>`;
     tbody.appendChild(tr);
     return;
   }
   rows.forEach(d => {
-    const isReal     = d.type==='real';
-    const idxInData  = isReal ? DATA.indexOf(d) : -1;
-    const bfRaw      = isReal ? (d.bf!=null?d.bf:lastKnownBf(idxInData)) : d.bf;  // angezeigt
-    const bfSm       = isReal ? smoothBf(idxInData) : d.bf;                       // gerechnet
-    const r          = calcRow(d.w, bfSm);
-    const tr         = document.createElement('tr');
-    tr.className     = d.type;
-    tr.innerHTML = `<td>${fmtD(d.date)}</td>`+
-      `<td>${P.imperial?(d.w*KG_LBS).toFixed(1):d.w.toFixed(2)}</td>`+
+    const isReal    = d.type==='real';
+    const idxInData = isReal ? DATA.indexOf(d) : -1;
+    const bfRaw     = isReal ? (d.bf!=null?d.bf:lastKnownBf(idxInData)) : d.bf;
+    const bfSm      = isReal ? smoothBf(idxInData) : d.bf;
+    const wSm       = isReal ? (smooth(idxInData) ?? d.w) : null;
+    const r         = calcRow(d.w, bfSm);
+    const tr        = document.createElement('tr');
+    tr.className    = d.type;
+    // Extra columns for fullscreen only
+    const dayTd  = isFull ? `<td>${DOW_SHORT[new Date(d.date+'T12:00:00').getDay()]}</td>` : '';
+    const wSmTd  = isFull ? `<td>${wSm!=null?(P.imperial?(wSm*KG_LBS).toFixed(1):wSm.toFixed(2)):'—'}</td>` : '';
+    tr.innerHTML = `<td>${fmtD(d.date)}</td>${dayTd}`+
+      `<td>${P.imperial?(d.w*KG_LBS).toFixed(1):d.w.toFixed(2)}</td>${wSmTd}`+
       `<td>${bfRaw!=null?bfRaw.toFixed(1):'—'}</td>`+
       `<td>${bfSm!=null?bfSm.toFixed(1):'—'}</td>`+
       `<td>${r.lbm?(P.imperial?(r.lbm*KG_LBS).toFixed(1):r.lbm.toFixed(1)):'—'}</td>`+
@@ -1752,9 +1762,11 @@ function applySystem(){
     }
   }
   const wu = wUnit();
-  // Dashboard entry form weight label
+  // Dashboard entry form weight label + placeholder
   const ewl = document.getElementById('entryWeightLabel');
   if(ewl) ewl.textContent = 'Weight ' + wu;
+  const iW = document.getElementById('iWeight');
+  if(iW) iW.placeholder = imp ? '188.3' : '85.40';
   // Batch-entry modal weight labels (rows already in DOM)
   document.querySelectorAll('.entry-w-label').forEach(el => el.textContent = 'Weight ' + wu);
 }
@@ -2052,6 +2064,29 @@ function fmtD(iso){ const [y,m,d]=iso.split('-'); return d+'.'+m+'.'+y.slice(2);
 let _weightChart = null;
 let _lbmChart    = null;
 
+// Catmull-Rom spline → SVG cubic bezier path.
+// Produces smooth organic curves that pass through every data point.
+// For n=2 falls back to a straight line; endpoints are clamped so the
+// curve doesn't overshoot at either end.
+function catmullRomPath(pts){
+  if(pts.length < 2) return '';
+  if(pts.length === 2)
+    return `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)} L${pts[1].x.toFixed(1)},${pts[1].y.toFixed(1)}`;
+  let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+  for(let i = 0; i < pts.length - 1; i++){
+    const p0 = pts[Math.max(0, i-1)];
+    const p1 = pts[i];
+    const p2 = pts[i+1];
+    const p3 = pts[Math.min(pts.length-1, i+2)];
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+  }
+  return d;
+}
+
 // renderChart — zwei Render-Modi für den Weight-Trend-Chart:
 // Vertical Monday-aligned week lines for fullscreen charts.
 // Returns an SVG string of faint gridlines, one per Monday in [minX, maxX].
@@ -2132,7 +2167,7 @@ function renderChart(opts){
   const axis = niceAxis(Math.min(...ys) - 0.1, Math.max(...ys) + 0.1, compact ? 5 : 7);
   const sx = t => padL + (t-minX)/((maxX-minX)||1) * (W-padL-padR);
   const sy = v => padT + (axis.axisMax-v)/((axis.axisMax-axis.axisMin)||1) * (H-padT-padB);
-  const path = arr => arr.map((p,i) => (i?'L':'M') + sx(+new Date(p.x)).toFixed(1) + ',' + sy(p.y).toFixed(1)).join(' ');
+  const path = arr => catmullRomPath(arr.map(p => ({x: sx(+new Date(p.x)), y: sy(p.y)})));
 
   const fs = compact ? { y:12, label:11, x:12, ann:11 } : { y:16, label:14, x:14, ann:14 };
 
@@ -2366,7 +2401,7 @@ function renderLbmChart(opts){
   const axis = niceAxis(Math.min(...allLbm) - 0.1, Math.max(...allLbm) + 0.1, compact ? 4 : 7);
   const sx = t => padL + (t-minX)/((maxX-minX)||1) * (W-padL-padR);
   const sy = v => padT + (axis.axisMax-v)/((axis.axisMax-axis.axisMin)||1) * (H-padT-padB);
-  const path = arr => arr.map((p,i) => (i?'L':'M') + sx(+new Date(p.date)).toFixed(1) + ',' + sy(toY(p.lbm)).toFixed(1)).join(' ');
+  const path = arr => catmullRomPath(arr.map(p => ({x: sx(+new Date(p.date)), y: sy(toY(p.lbm))})));
 
   // Font-Größen skalieren mit compact/fullscreen
   const fs = compact
@@ -2518,11 +2553,11 @@ function renderLbmChart(opts){
     gi.textContent = headerText;
     gi.style.color = lbmInfoColors[lbmLossStatus(realFrac, stats.warmup)];
     const v = $('lbmVerdict');
-    if(stats.warmup){ v.textContent='⚠ Settling phase — not yet interpretable'; v.style.color='var(--ink-faint)'; }
-    else if(totalLoss==null || totalLoss<=0.5 || realFrac==null){ v.textContent='Too little data for a verdict'; v.style.color='var(--ink-faint)'; }
-    else if(realFrac>0.20){ v.textContent='⚠ LBM loss > 20% — ease deficit, add protein'; v.style.color='var(--danger)'; }
-    else if(realFrac>=0.10){ v.textContent='● LBM loss within band (10–20%)'; v.style.color='var(--warn)'; }
-    else { v.textContent='✓ LBM loss < 10% — on track'; v.style.color='var(--good)'; }
+    if(stats.warmup){ v.textContent='⚠ Settling phase · too early to read'; v.style.color='var(--ink-faint)'; }
+    else if(totalLoss==null || totalLoss<=0.5 || realFrac==null){ v.textContent='Not enough data yet'; v.style.color='var(--ink-faint)'; }
+    else if(realFrac>0.20){ v.textContent='⚠ LBM loss over 20% · reduce deficit, add protein'; v.style.color='var(--danger)'; }
+    else if(realFrac>=0.10){ v.textContent='● LBM loss 10–20% · within range'; v.style.color='var(--warn)'; }
+    else { v.textContent='✓ LBM loss under 10% · on track'; v.style.color='var(--good)'; }
   } else {
     const i = $('lbmTrendInfo'); if(i) i.textContent = headerText;
   }
@@ -2618,7 +2653,7 @@ function submitBatch(){
     setStatus(`Added ${added} entr${added===1?'y':'ies'}.`, 'good');
     resetEntryRows();
   } else {
-    setStatus('No valid rows — date and weight required.', 'warn');
+    setStatus('No valid rows. Date and weight required.', 'warn');
   }
 }
 
@@ -2773,7 +2808,7 @@ function bind(){
   document.getElementById('fileInput').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const rd=new FileReader(); rd.onload=()=>importCSV(rd.result); rd.readAsText(f); };
   document.getElementById('clearBtn').onclick=()=>{
     if(!DATA.length || confirm('Permanently delete all locally stored data? Export first if not yet backed up.')){
-      DATA=[]; clearStorage(); render(); setStatus('Storage cleared — empty.');
+      DATA=[]; clearStorage(); render(); setStatus('Storage cleared.');
     }
   };
   // bindP — binds a range slider to a P key + live-updates a display element.
