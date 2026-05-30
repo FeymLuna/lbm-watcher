@@ -60,7 +60,7 @@
   .masthead .sub { color: var(--ink-faint); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; }
   .eta { display:flex; gap:28px; align-items:flex-end; }
   .eta .blk { text-align:right; }
-  .eta .blk .lbl { font-size:9px; letter-spacing:0.2em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:3px; }
+  .eta .blk .lbl { font-size:9px; letter-spacing:0.2em; text-transform:uppercase; color:var(--ink-dim); margin-bottom:3px; }
   .eta .blk .num { font-size:18px; font-weight:700; letter-spacing:0.02em; color:var(--ink); }
   /* ETA primary number stays white — yellow is reserved for interactive surfaces.
      Marker class kept on the block for layout/structural use, just no color override. */
@@ -344,7 +344,7 @@
   .params-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
   .params-section-head h3 { font-size: 10px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink); }
   .params-section-head .sub { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); font-family: var(--mono); }
-  .params-desc { font-size: 12px; line-height: 1.7; color: var(--ink-dim); margin-top: 14px; }
+  .params-desc { font-size: 12px; line-height: 1.7; color: var(--ink-faint); margin-top: 14px; }
   .params-example { font-family: var(--mono); font-size: 11px; line-height: 1.7; color: var(--ink-faint); background: var(--panel-2); border: 1px solid var(--line-2); border-radius: var(--r); padding: 14px 16px; margin-top: 12px; white-space: pre; overflow-x: auto; }
   .unit-toggle { display: flex; gap: 4px; }
   .unit-btn { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; padding: 5px 12px; border-radius: 4px; border: 1px solid var(--line-2); background: transparent; color: var(--ink-dim); cursor: pointer; transition: all .15s ease; -webkit-tap-highlight-color: transparent; }
@@ -651,8 +651,9 @@
   .entry-row .field:nth-child(3) { flex: 0.8; }
   .entry-row-remove { width: 32px; height: 42px; flex-shrink: 0; background: transparent; border: 1px solid var(--danger); color: var(--danger); border-radius: var(--r); font-family: var(--mono); font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s ease; -webkit-tap-highlight-color: transparent; }
   .entry-row-remove:hover { background: rgba(242,115,77,0.12); }
-  .btn-add-row { width: 38px; height: 38px; background: transparent; border: 1.5px solid var(--accent); color: var(--accent); border-radius: 50%; font-family: var(--mono); font-size: 22px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s ease, color .15s ease; -webkit-tap-highlight-color: transparent; }
-  .btn-add-row:hover { background: var(--accent); color: #0b0c08; }
+  .btn-add-row { width: 38px; height: 38px; background: transparent; border: 1.5px solid var(--accent); color: var(--accent); border-radius: 50%; font-family: var(--mono); font-size: 22px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s ease; -webkit-tap-highlight-color: transparent; }
+  .btn-add-row:hover { background: rgba(234,242,77,0.12); }
+  .btn-add-row:active { background: rgba(234,242,77,0.2); }
 
   /* Reduced motion — disable all decorative motion entirely */
   @media (prefers-reduced-motion: reduce) {
@@ -670,7 +671,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass · Watcher <span class="ver">v1.10.2</span></h1>
+    <h1>Lean Body Mass · Watcher <span class="ver">v1.10.3</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -935,7 +936,7 @@
               <div class="field"><label>in</label><input type="text" inputmode="decimal" id="iIn" placeholder="9.0"></div>
             </div>
             <div class="unit-toggle height-unit-toggle">
-              <span class="height-unit-spacer" style="visibility:visible;color:var(--ink-faint);letter-spacing:0.14em;text-transform:uppercase;">System</span>
+              <span class="height-unit-spacer" style="visibility:visible;color:var(--ink-dim);letter-spacing:0.14em;text-transform:uppercase;">System</span>
               <div class="height-unit-btns">
                 <button class="unit-btn active" id="unitCmBtn" type="button">Metric</button>
                 <button class="unit-btn" id="unitFtBtn" type="button">Imperial</button>
@@ -1556,6 +1557,71 @@ function render(){
     setCellStatus('sLbmReal', lbmFrac7Status);
   }
 
+  // Stripe cell hover titles — desktop context via native tooltip (title attribute).
+  // Shows non-redundant secondary info: raw vs smoothed, from-to ranges, clinical zones.
+  {
+    const cellOf = id => { const el = $(id); return el ? el.closest('.cell') : null; };
+    // Weight: raw vs smoothed difference
+    if(sW != null && headIdx >= 0){
+      const rawW = DATA[headIdx].w;
+      const rawD = P.imperial ? toImperial(rawW).toFixed(1) : rawW.toFixed(2);
+      const smD  = P.imperial ? toImperial(sW).toFixed(1)  : sW.toFixed(2);
+      const dif  = sW - rawW;
+      const c = cellOf('sWeight');
+      if(c) c.title = `Raw: ${rawD} ${wu}  ·  Smoothed: ${smD} ${wu}  ·  Δ ${dif>=0?'+':''}${(P.imperial?toImperial(dif):dif).toFixed(P.imperial?1:2)}`;
+    }
+    // Weight trend: 7-entries-ago → now
+    if(trendKg != null && reals.length >= 8 && sW != null){
+      const bW = smooth(DATA.indexOf(reals[reals.length-8]));
+      if(bW != null){
+        const fD = P.imperial ? toImperial(bW).toFixed(1) : bW.toFixed(2);
+        const tD = P.imperial ? toImperial(sW).toFixed(1) : sW.toFixed(2);
+        const c = cellOf('sTrend');
+        if(c) c.title = `7 entries ago: ${fD} ${wu}  →  Now: ${tD} ${wu}`;
+      }
+    }
+    // BF: clinical zone
+    if(headBf != null){
+      const z = headBf<7 ? 'Essential fat (<7%)' : headBf<=14 ? 'Athletic (7–14%)' : headBf<=25 ? 'Normal (15–25%)' : headBf<=31 ? 'Elevated (26–31%)' : 'Obese (>31%)';
+      const c = cellOf('sBf'); if(c) c.title = z;
+    }
+    // BF trend: 7-entries-ago → now
+    if(bfTrend !== '—' && reals.length >= 8 && headBf != null){
+      const bBf = smoothBf(DATA.indexOf(reals[reals.length-8]));
+      if(bBf != null){
+        const c = cellOf('sBfTrend');
+        if(c) c.title = `7 entries ago: ${bBf.toFixed(1)}%  →  Now: ${headBf.toFixed(1)}%`;
+      }
+    }
+    // LBM: % of body weight
+    if(r && r.lbm && sW){
+      const pct = (r.lbm / sW * 100).toFixed(1);
+      const c = cellOf('sLbm'); if(c) c.title = `${pct}% of body weight is lean mass`;
+    }
+    // LBM Δ: fraction of total weight change
+    if(lbmDelta7 != null && lbmSeries.length >= 2){
+      const wAt = date => { const idx=DATA.findIndex(d=>d.date===date&&d.type==='real'); return idx>=0?smooth(idx):null; };
+      const sE = lbmSeries.length>=8 ? lbmSeries[lbmSeries.length-8] : lbmSeries[0];
+      const wS2 = wAt(sE.date), wE2 = wAt(lbmSeries[lbmSeries.length-1].date);
+      if(wS2 && wE2 && Math.abs(wE2-wS2) > 0.05){
+        const frac = (Math.abs(lbmDelta7)/Math.abs(wE2-wS2)*100).toFixed(0);
+        const c = cellOf('sLbmReal'); if(c) c.title = `${frac}% of weight change was lean mass`;
+      }
+    }
+    // FFMI: zone
+    if(r && r.ffmi != null){
+      const f = r.ffmi;
+      const z = f<18?'Below average':f<20?'Average':f<22?'Above average':f<24?'Excellent':f<25?'Elite (natural ceiling)':'Above natural limit';
+      const c = cellOf('sFfmi'); if(c) c.title = `FFMI ${f.toFixed(1)} · ${z}`;
+    }
+    // BMI: WHO category
+    if(r && r.bmi != null){
+      const b = r.bmi;
+      const z = b<18.5?'Underweight (<18.5)':b<25?'Normal weight (18.5–24.9)':b<30?'Overweight (25–29.9)':'Obese (≥30)';
+      const c = cellOf('sBmi'); if(c) c.title = `BMI ${b.toFixed(1)} · ${z}`;
+    }
+  }
+
   // Aggressiveness binding: .key cards re-color their accent bar based on P.agg.
   const aggK = aggrStatus(P.agg);
   document.querySelectorAll('.focus .card.key').forEach(c => {
@@ -1652,7 +1718,7 @@ function renderRows(tbody, rows, opts){
     const idxInData = isReal ? DATA.indexOf(d) : -1;
     const bfRaw     = isReal ? (d.bf!=null?d.bf:lastKnownBf(idxInData)) : d.bf;
     const bfSm      = isReal ? smoothBf(idxInData) : d.bf;
-    const wSm       = isReal ? (smooth(idxInData) ?? d.w) : null;
+    const wSm       = isReal ? (smooth(idxInData) ?? d.w) : d.w;
     const r         = calcRow(d.w, bfSm);
     const tr        = document.createElement('tr');
     tr.className    = d.type;
