@@ -655,6 +655,11 @@
   .btn-add-row:hover { background: rgba(234,242,77,0.12); }
   .btn-add-row:active { background: rgba(234,242,77,0.2); }
 
+  /* ===== Support footer ===== */
+  .bmc-footer { text-align: center; padding: 22px 0 6px; margin-top: 10px; border-top: 1px solid var(--line); }
+  .bmc-footer a { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; color: var(--ink-dim); text-decoration: none; transition: color .15s ease; -webkit-tap-highlight-color: transparent; }
+  .bmc-footer a:hover { color: var(--accent); }
+
   /* Reduced motion — disable all decorative motion entirely */
   @media (prefers-reduced-motion: reduce) {
     .wrap > *, .toast, .stripe .v.changed,
@@ -671,7 +676,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass · Watcher <span class="ver">v1.10.5</span></h1>
+    <h1>Lean Body Mass · Watcher <span class="ver">v1.10.6</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -813,6 +818,10 @@
       <div class="pcell"><span class="pk">Entries</span><span class="pv" id="prevEntries">—</span></div>
       <div class="pcell"><span class="pk">Last entry</span><span class="pv" id="prevLastEntry" style="font-size:13px;letter-spacing:0;">—</span></div>
     </div>
+  </div>
+
+  <div class="bmc-footer">
+    <a href="https://buymeacoffee.com/feymluna" target="_blank" rel="noopener noreferrer">no ads · no tracking · just coffee ☕</a>
   </div>
 </div>
 
