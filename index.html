@@ -639,6 +639,17 @@
   .modal-sheet.entering svg .today-marker   { animation: fadeIn 600ms var(--ease) 900ms both; }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
+  /* ===== Entry modal — batch row form ===== */
+  .entry-row { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 10px; }
+  .entry-row .field { margin-bottom: 0; min-width: 0; }
+  .entry-row .field:first-child  { flex: 1.4; }
+  .entry-row .field:nth-child(2) { flex: 1; }
+  .entry-row .field:nth-child(3) { flex: 0.8; }
+  .entry-row-remove { width: 32px; height: 42px; flex-shrink: 0; background: transparent; border: 1px solid var(--line-2); color: var(--ink-faint); border-radius: var(--r); font-family: var(--mono); font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: color .15s ease, border-color .15s ease; -webkit-tap-highlight-color: transparent; }
+  .entry-row-remove:hover { color: var(--danger); border-color: var(--danger); }
+  .btn-add-row { width: 38px; height: 38px; background: transparent; border: 1.5px solid var(--accent); color: var(--accent); border-radius: 50%; font-family: var(--mono); font-size: 22px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s ease, color .15s ease; -webkit-tap-highlight-color: transparent; }
+  .btn-add-row:hover { background: var(--accent); color: #0b0c08; }
+
   /* Reduced motion — disable all decorative motion entirely */
   @media (prefers-reduced-motion: reduce) {
     .wrap > *, .toast, .stripe .v.changed,
@@ -655,7 +666,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass · Watcher <span class="ver">v1.9.14</span></h1>
+    <h1>Lean Body Mass · Watcher <span class="ver">v1.10.0</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -758,11 +769,14 @@
 
   <!-- Entry -->
   <div class="panel" style="margin-bottom:16px;">
-    <div class="head"><h2>Entry</h2></div>
+    <div class="head head-button" id="entryHead" tabindex="0" role="button" aria-haspopup="dialog" aria-expanded="false">
+      <h2>Entry</h2>
+      <div class="head-right"><span class="expand-icon">⤢</span></div>
+    </div>
     <div class="body">
       <div class="field"><label>Date</label><input type="date" id="iDate"></div>
       <div class="row2">
-        <div class="field"><label>Weight kg</label><input type="text" inputmode="decimal" id="iWeight" placeholder="85.40"></div>
+        <div class="field"><label id="entryWeightLabel">Weight kg</label><input type="text" inputmode="decimal" id="iWeight" placeholder="85.40"></div>
         <div class="field"><label>BF %</label><input type="text" inputmode="decimal" id="iBf" placeholder="25.0"></div>
       </div>
       <button class="btn" id="addBtn">Add</button>
@@ -780,7 +794,7 @@
       <div class="pcell"><span class="pk">Aggressiveness</span><span class="pv" id="prevAgg">—</span></div>
       <div class="pcell"><span class="pk">Goal BF</span><span class="pv" id="prevGoalBf">—</span></div>
       <div class="pcell"><span class="pk">TDEE</span><span class="pv" id="prevTdee">—</span></div>
-      <div class="pcell pcell-btn"><button class="btn-calc-tdee" id="dashCalcTdee" type="button">Calculate TDEE</button></div>
+      <div class="pcell pcell-btn"><button class="btn" id="dashCalcTdee" type="button">Calculate TDEE</button></div>
     </div>
   </div>
 
@@ -910,18 +924,18 @@
           <div class="params-section-head">
             <h3>Personal</h3>
           </div>
+          <div class="params-section-head" style="margin-bottom:6px;">
+            <h3 style="color:var(--ink-faint);font-size:9px;">System</h3>
+          </div>
+          <div class="unit-toggle" style="margin-bottom:16px;">
+            <button class="unit-btn active" id="unitCmBtn" type="button">Metric</button>
+            <button class="unit-btn" id="unitFtBtn" type="button">Imperial</button>
+          </div>
           <div class="height-row">
-            <div id="heightCmField" class="field"><label>Height (cm)</label><input type="text" inputmode="decimal" id="iHeight" placeholder="e.g. 175"></div>
+            <div id="heightCmField" class="field" style="margin-bottom:0;"><label>Height cm</label><input type="text" inputmode="decimal" id="iHeight" placeholder="e.g. 175"></div>
             <div id="heightFtField" class="height-ft-pair" style="display:none;">
-              <div class="field"><label>Height (Feet)</label><input type="text" inputmode="numeric" id="iFt" placeholder="5"></div>
-              <div class="field"><label>(Inches)</label><input type="text" inputmode="decimal" id="iIn" placeholder="9.0"></div>
-            </div>
-            <div class="unit-toggle height-unit-toggle">
-              <span class="height-unit-spacer" aria-hidden="true">&nbsp;</span>
-              <div class="height-unit-btns">
-                <button class="unit-btn active" id="unitCmBtn" type="button">cm</button>
-                <button class="unit-btn" id="unitFtBtn" type="button">ft · in</button>
-              </div>
+              <div class="field"><label>Height ft</label><input type="text" inputmode="numeric" id="iFt" placeholder="5"></div>
+              <div class="field"><label>in</label><input type="text" inputmode="decimal" id="iIn" placeholder="9.0"></div>
             </div>
           </div>
           <div class="field">
@@ -1032,12 +1046,42 @@ Example — 80 kg · 20% BF · light
   </div>
 </div>
 
+<!-- ====================================================================
+     Entry fullscreen modal — batch entry of multiple measurements.
+     Opens via the Entry panel head on the dashboard.
+     ==================================================================== -->
+<div class="modal" id="entryModal" role="dialog" aria-modal="true" aria-labelledby="entryModalTitle" hidden>
+  <div class="modal-backdrop" data-close="1"></div>
+  <div class="modal-sheet">
+    <header class="modal-head">
+      <button class="modal-back" id="entryClose" type="button" aria-label="Back to dashboard"><span aria-hidden="true">←</span></button>
+      <h2 id="entryModalTitle">Entry</h2>
+      <span class="sub">Batch entry</span>
+    </header>
+    <div class="modal-body">
+      <div class="params-content">
+        <div class="params-section">
+          <div id="entryRows"></div>
+          <div style="display:flex;justify-content:center;margin:10px 0 6px;">
+            <button class="btn-add-row" id="addRowBtn" type="button" aria-label="Add row">+</button>
+          </div>
+          <button class="btn" id="batchAddBtn" style="margin-top:8px;">Add</button>
+          <p class="params-desc" style="margin-top:18px;"><b>Batch entry</b> — fill in multiple days at once. Each row represents one measurement. Pressing <b>+</b> appends a new row with the date auto-set to the following day. Weight is required per row; BF% is optional and falls back to the last known value. Rows with no weight are silently skipped. An entry for an existing date is overwritten.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 const STORE_KEY = 'telemetrie_v1';
 let DATA = [];   // {date:'YYYY-MM-DD', w:Number, bf:Number|null, type:'real'|'proj'}
 // Physiological constant — never user-configurable (Alpert, 2005).
 const ALPERT = 69;  // kcal / kg fat / day
-let P = { agg:55, tdee:null, height:null, goalBf:15, actFactor:1.375 };
+const KG_LBS     = 2.20462;
+const wUnit      = () => P.imperial ? 'lbs' : 'kg';
+const toImperial = kg  => kg * KG_LBS;
+let P = { agg:55, tdee:null, height:null, goalBf:15, actFactor:1.375, imperial:false };
 
 // ---------- Persistenz (localStorage — funktioniert auf GitHub Pages, kein Login/Cloud) ----------
 function save(){
@@ -1428,15 +1472,16 @@ function render(){
     }
   } else { $('fTarget').textContent='—'; $('fIntake').textContent='—'; $('fMin').textContent='—'; $('fTargetNote').textContent=P.agg+'% of Alpert Limit'; $('fIntakeNote').textContent='TDEE − target deficit'; }
 
-  $('sWeight').innerHTML = (sW?sW.toFixed(2):'—')+'<small> kg</small>';
+  const wu = wUnit();
+  $('sWeight').innerHTML = (sW?(P.imperial?toImperial(sW).toFixed(1):sW.toFixed(2)):'—')+'<small> '+wu+'</small>';
   // Trend: geglättet heute vs vor 7 realen — gleiche Logik für Gewicht und BF
-  let trend='—';
+  let trend='—', trendKg=null;
   if(reals.length>=8){
     const a=smooth(headIdx), bIdx=DATA.indexOf(reals[reals.length-8]);
     const b=smooth(bIdx);
-    if(a&&b) trend=((a-b)).toFixed(2);
+    if(a&&b){ trendKg=a-b; trend=(P.imperial?toImperial(trendKg).toFixed(1):trendKg.toFixed(2)); }
   }
-  $('sTrend').innerHTML = trend+'<small> kg/wk</small>';
+  $('sTrend').innerHTML = trend+'<small> '+wu+'/wk</small>';
   // BF-Trend 7d: nutzt _bfCache (geglätteter KFA an realen Tagen) — selbe Mechanik wie Gewicht.
   let bfTrend='—';
   if(reals.length>=8){
@@ -1447,7 +1492,7 @@ function render(){
   }
   $('sBfTrend').innerHTML = bfTrend+'<small> %/wk</small>';
   $('sBf').innerHTML = (headBf!=null?headBf.toFixed(1):'—')+'<small> %</small>';
-  $('sLbm').innerHTML = (r&&r.lbm?r.lbm.toFixed(2):'—')+'<small> kg</small>';
+  $('sLbm').innerHTML = (r&&r.lbm?(P.imperial?toImperial(r.lbm).toFixed(1):r.lbm.toFixed(2)):'—')+'<small> '+wu+'</small>';
   // LBM Δ 7d: smoothed LBM difference between last and 7th-to-last real entry.
   const lbmStats   = realLbmStats();
   const lbmSeries  = realLbmSeries();
@@ -1458,10 +1503,11 @@ function render(){
     lbmDelta7 = lbmSeries[lbmSeries.length-1].lbm - lbmSeries[0].lbm;
   }
   if(lbmDelta7 != null){
-    const sign = lbmDelta7>=0?'+':'';
-    $('sLbmReal').innerHTML = `${sign}${lbmDelta7.toFixed(2)}<small> kg/wk</small>`;
+    const d7disp = P.imperial ? toImperial(lbmDelta7) : lbmDelta7;
+    const sign = d7disp>=0?'+':'';
+    $('sLbmReal').innerHTML = `${sign}${d7disp.toFixed(P.imperial?1:2)}<small> ${wu}/wk</small>`;
     $('sLbmReal').title = lbmSeries.length >= 8 ? 'LBM change over last 7 entries (smoothed)' : 'LBM change since first entry (smoothed, <8 entries)';
-  } else { $('sLbmReal').innerHTML='—<small> kg/wk</small>'; }
+  } else { $('sLbmReal').innerHTML='—<small> '+wu+'/wk</small>'; }
   $('sBmi').textContent  = (r&&r.bmi!=null)?r.bmi.toFixed(2):'—';
   $('sFfmi').textContent = (r&&r.ffmi)?r.ffmi.toFixed(2):'—';
 
@@ -1469,8 +1515,9 @@ function render(){
   if(reals.length >= 2 && sW != null){
     const firstW = smooth(DATA.indexOf(reals[0])) ?? reals[0].w;
     const wDelta = sW - firstW;
+    const wDeltaDisp = P.imperial ? toImperial(wDelta) : wDelta;
     const gi = $('goalInfo');
-    gi.textContent = `Δ W ${wDelta>=0?'+':''}${wDelta.toFixed(2)} kg`;
+    gi.textContent = `Δ W ${wDeltaDisp>=0?'+':''}${wDeltaDisp.toFixed(P.imperial?1:2)} ${wu}`;
     gi.style.color  = wDelta < -0.05 ? 'var(--good)' : wDelta > 0.05 ? 'var(--danger)' : 'var(--ink-faint)';
   } else {
     const gi = $('goalInfo'); gi.textContent = '—'; gi.style.color = 'var(--ink-faint)';
@@ -1603,10 +1650,10 @@ function renderRows(tbody, rows){
     const tr         = document.createElement('tr');
     tr.className     = d.type;
     tr.innerHTML = `<td>${fmtD(d.date)}</td>`+
-      `<td>${d.w.toFixed(2)}</td>`+
+      `<td>${P.imperial?(d.w*KG_LBS).toFixed(1):d.w.toFixed(2)}</td>`+
       `<td>${bfRaw!=null?bfRaw.toFixed(1):'—'}</td>`+
       `<td>${bfSm!=null?bfSm.toFixed(1):'—'}</td>`+
-      `<td>${r.lbm?r.lbm.toFixed(1):'—'}</td>`+
+      `<td>${r.lbm?(P.imperial?(r.lbm*KG_LBS).toFixed(1):r.lbm.toFixed(1)):'—'}</td>`+
       `<td>${r.ffmi?r.ffmi.toFixed(1):'—'}</td>`+
       `<td>${r.bmi!=null?r.bmi.toFixed(1):'—'}</td>`+
       `<td>${r.target?Math.round(r.target):'—'}</td>`+
@@ -1682,42 +1729,51 @@ function updateParamsPreview(){
   setColored('prevGoalBf', P.goalBf != null ? (+P.goalBf).toFixed(1) + '%' : '—', bfStatus(P.goalBf));
   if(el('prevTdee')) el('prevTdee').textContent = P.tdee != null ? P.tdee + ' kcal' : '—';
 }
-function initHeightToggle(){
+// applySystem() — reads P.imperial and applies height field visibility, button active state,
+// and all dynamic unit labels. Must be called after load() so P.imperial is already set.
+function applySystem(){
+  const imp     = P.imperial;
   const cmBtn   = document.getElementById('unitCmBtn');
   const ftBtn   = document.getElementById('unitFtBtn');
   const cmField = document.getElementById('heightCmField');
   const ftField = document.getElementById('heightFtField');
+  const iHeight = document.getElementById('iHeight');
+  const iFt     = document.getElementById('iFt');
+  const iIn     = document.getElementById('iIn');
+  if(cmBtn) cmBtn.classList.toggle('active', !imp);
+  if(ftBtn) ftBtn.classList.toggle('active',  imp);
+  if(cmField) cmField.style.display = imp ? 'none' : '';
+  if(ftField) ftField.style.display = imp ? 'flex' : 'none';
+  if(imp && iHeight && iFt && iIn){
+    const cm = parseFloat(iHeight.value);
+    if(cm > 0){
+      iFt.value = Math.floor(cm / 30.48);
+      iIn.value = Math.round((cm - Math.floor(cm / 30.48) * 30.48) / 2.54 * 10) / 10;
+    }
+  }
+  const wu = wUnit();
+  // Dashboard entry form weight label
+  const ewl = document.getElementById('entryWeightLabel');
+  if(ewl) ewl.textContent = 'Weight ' + wu;
+  // Batch-entry modal weight labels (rows already in DOM)
+  document.querySelectorAll('.entry-w-label').forEach(el => el.textContent = 'Weight ' + wu);
+}
+
+function initHeightToggle(){
+  const cmBtn   = document.getElementById('unitCmBtn');
+  const ftBtn   = document.getElementById('unitFtBtn');
   const iFt     = document.getElementById('iFt');
   const iIn     = document.getElementById('iIn');
   const iHeight = document.getElementById('iHeight');
   if(!cmBtn || !ftBtn) return;
-  function showCm(){
-    cmField.style.display = '';
-    ftField.style.display = 'none';
-    cmBtn.classList.add('active');
-    ftBtn.classList.remove('active');
-  }
-  function showFt(){
-    cmField.style.display = 'none';
-    ftField.style.display = 'flex';   // height-ft-pair is a flex container
-    cmBtn.classList.remove('active');
-    ftBtn.classList.add('active');
-    const cm = parseFloat(iHeight.value);
-    if(cm > 0){
-      const ft   = Math.floor(cm / 30.48);
-      const inch = Math.round((cm - ft * 30.48) / 2.54 * 10) / 10;
-      iFt.value = ft;
-      iIn.value = inch;
-    }
-  }
   function ftInToCm(){
     const ft   = parseFloat(iFt.value)  || 0;
     const inch = parseFloat((iIn.value || '').replace(',', '.')) || 0;
     const cm   = Math.round(ft * 30.48 + inch * 2.54);
     if(cm > 0){ iHeight.value = cm; iHeight.dispatchEvent(new Event('input')); }
   }
-  cmBtn.onclick = showCm;
-  ftBtn.onclick = showFt;
+  cmBtn.onclick = () => { P.imperial = false; save(); applySystem(); render(); };
+  ftBtn.onclick = () => { P.imperial = true;  save(); applySystem(); render(); };
   iFt.oninput   = ftInToCm;
   iIn.oninput   = ftInToCm;
 }
@@ -1929,8 +1985,8 @@ function buildWeightTooltip(p, state){
   const rawDiff = isReal && p.raw != null && Math.abs(p.raw - p.w) >= 0.05;
   const bmi = state.heightM ? (p.w / (state.heightM * state.heightM)).toFixed(1) : null;
   let h = `<div class="tt-date">${fmtD(p.date)}${isReal ? '' : ' <span class="tt-proj">· projected</span>'}</div>`;
-  h += `<div class="tt-row"><span class="tt-key">${isReal?'Smoothed':'Weight'}</span><span class="tt-val">${p.w.toFixed(2)} kg</span></div>`;
-  if(rawDiff) h += `<div class="tt-row"><span class="tt-key">Raw</span><span class="tt-val">${p.raw.toFixed(2)} kg</span></div>`;
+  h += `<div class="tt-row"><span class="tt-key">${isReal?'Smoothed':'Weight'}</span><span class="tt-val">${p.w.toFixed(P.imperial?1:2)} ${wUnit()}</span></div>`;
+  if(rawDiff) h += `<div class="tt-row"><span class="tt-key">Raw</span><span class="tt-val">${p.raw.toFixed(P.imperial?1:2)} ${wUnit()}</span></div>`;
   if(bmi)     h += `<div class="tt-row"><span class="tt-key">BMI</span><span class="tt-val">${bmi}</span></div>`;
   return h;
 }
@@ -1939,8 +1995,8 @@ function buildLbmTooltip(p, state){
   const rawDiff = isReal && p.raw != null && Math.abs(p.raw - p.lbm) >= 0.05;
   const ffmi = state.heightM ? (p.lbm / (state.heightM * state.heightM)).toFixed(1) : null;
   let h = `<div class="tt-date">${fmtD(p.date)}${isReal ? '' : ' <span class="tt-proj">· projected</span>'}</div>`;
-  h += `<div class="tt-row"><span class="tt-key">${isReal?'Smoothed':'LBM'}</span><span class="tt-val">${p.lbm.toFixed(2)} kg</span></div>`;
-  if(rawDiff) h += `<div class="tt-row"><span class="tt-key">Raw</span><span class="tt-val">${p.raw.toFixed(2)} kg</span></div>`;
+  h += `<div class="tt-row"><span class="tt-key">${isReal?'Smoothed':'LBM'}</span><span class="tt-val">${p.lbm.toFixed(P.imperial?1:2)} ${wUnit()}</span></div>`;
+  if(rawDiff) h += `<div class="tt-row"><span class="tt-key">Raw</span><span class="tt-val">${p.raw.toFixed(P.imperial?1:2)} ${wUnit()}</span></div>`;
   if(ffmi)    h += `<div class="tt-row"><span class="tt-key">FFMI</span><span class="tt-val">${ffmi}</span></div>`;
   return h;
 }
@@ -2037,8 +2093,8 @@ function renderChart(opts){
 
   const reals = DATA.filter(d=>d.type==='real').map((d,i)=>({...d, sw:smooth(DATA.indexOf(d))}));
   const proj  = buildProjection();
-  // Korridor: 10% (optimistisch, kürzere Strecke) vs 20% (pessimistisch, länger).
-  const series  = [...reals.map(d=>({x:d.date,y:d.sw||d.w})), ...proj.map(d=>({x:d.date,y:d.w}))];
+  const toY   = kg => P.imperial ? kg * KG_LBS : kg;
+  const series  = [...reals.map(d=>({x:d.date,y:toY(d.sw||d.w)})), ...proj.map(d=>({x:d.date,y:toY(d.w)}))];
 
   if(series.length<2){
     const cx = W/2, cy = H/2;
@@ -2058,7 +2114,7 @@ function renderChart(opts){
   const dates = series.map(s=>+new Date(s.x));
   const minX  = Math.min(...dates), maxX = Math.max(...dates);
   const ys    = series.map(s=>s.y);
-  const goalW = proj.length ? proj[proj.length-1].w : Math.min(...ys);
+  const goalW = proj.length ? toY(proj[proj.length-1].w) : Math.min(...ys);
   ys.push(goalW);
 
   // BMI-Schwellen — Vollbild only, wenn Höhe gesetzt. Konvention wie bei FFMI im LBM-Chart:
@@ -2070,7 +2126,7 @@ function renderChart(opts){
     { bmi: 30,   color: 'var(--danger)', label: 'BMI 30' },
   ] : [];
   if(!compact && heightM){
-    bmiLines.forEach(t => ys.push(t.bmi * heightM * heightM));
+    bmiLines.forEach(t => ys.push(toY(t.bmi * heightM * heightM)));
   }
 
   const axis = niceAxis(Math.min(...ys) - 0.1, Math.max(...ys) + 0.1, compact ? 5 : 7);
@@ -2083,7 +2139,7 @@ function renderChart(opts){
   // Transparent hit-rect first so mousemove fires over empty chart areas, not just painted lines.
   let g = !compact ? `<rect x="0" y="0" width="${W}" height="${H}" fill="transparent" pointer-events="all"/>` : '';
   // Y-axis: major ticks get a full gridline + integer label; minor ticks get a small tick mark only.
-  if(!compact) g += `<text x="${padL-10}" y="${padT-10}" fill="var(--axis)" font-size="13" text-anchor="end" letter-spacing="1.5">kg</text>`;
+  if(!compact) g += `<text x="${padL-10}" y="${padT-10}" fill="var(--axis)" font-size="13" text-anchor="end" letter-spacing="1.5">${wUnit()}</text>`;
   axis.ticks.forEach(tick => {
     const yy = sy(tick.v);
     if(yy < padT - 4 || yy > H - padB + 4) return;
@@ -2101,16 +2157,16 @@ function renderChart(opts){
   g+=`<line class="threshold-line" x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}" stroke="var(--n400)" stroke-dasharray="4 4"/>`;
   // Label in der Chart-Mitte — die Projektion endet immer auf der Goal-Linie am rechten Rand,
   // also würden Goal-Label und Projektions-End-Annotation kollidieren. Mitte ist neutral.
-  g+=`<text x="${((padL + W - padR) / 2).toFixed(1)}" y="${gy-4}" fill="var(--ink-dim)" font-size="${fs.label}" text-anchor="middle">${(+P.goalBf).toFixed(1)}% BF ≈ ${goalW.toFixed(1)} kg</text>`;
+  g+=`<text x="${((padL + W - padR) / 2).toFixed(1)}" y="${gy-4}" fill="var(--ink-dim)" font-size="${fs.label}" text-anchor="middle">${(+P.goalBf).toFixed(1)}% BF ≈ ${goalW.toFixed(1)} ${wUnit()}</text>`;
 
   // BMI-Schwellen (Vollbild)
   if(!compact && heightM){
     bmiLines.forEach(t => {
-      const weightAt = t.bmi * heightM * heightM;
+      const weightAt = toY(t.bmi * heightM * heightM);
       if(weightAt >= axis.axisMin && weightAt <= axis.axisMax){
         const y = sy(weightAt);
         g+=`<line class="threshold-line" x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="${t.color}" stroke-width="1" stroke-dasharray="6 4"/>`;
-        g+=`<text x="${padL+8}" y="${y-4}" fill="${t.color}" font-size="${fs.label}" text-anchor="start">${t.label} ≈ ${weightAt.toFixed(1)} kg</text>`;
+        g+=`<text x="${padL+8}" y="${y-4}" fill="${t.color}" font-size="${fs.label}" text-anchor="start">${t.label} ≈ ${weightAt.toFixed(1)} ${wUnit()}</text>`;
       }
     });
   }
@@ -2124,21 +2180,21 @@ function renderChart(opts){
 
   // Projektions-Linie (gestrichelt grau)
   if(proj.length){
-    const projSeries = [{x:reals[reals.length-1].date, y:reals[reals.length-1].sw||reals[reals.length-1].w}, ...proj.map(d=>({x:d.date,y:d.w}))];
+    const projSeries = [{x:reals[reals.length-1].date, y:toY(reals[reals.length-1].sw||reals[reals.length-1].w)}, ...proj.map(d=>({x:d.date,y:toY(d.w)}))];
     g+=`<path class="proj-line" d="${path(projSeries)}" fill="none" stroke="var(--proj)" stroke-width="${compact?1.5:2}" stroke-dasharray="${compact?'3 3':'5 5'}"/>`;
   }
 
   // Reale Linie (durchgezogen, geglättet)
-  g+=`<path class="real-line" d="${path(reals.map(d=>({x:d.date,y:d.sw||d.w})))}" fill="none" stroke="var(--real)" stroke-width="${compact?2:2.5}" stroke-linejoin="round"/>`;
+  g+=`<path class="real-line" d="${path(reals.map(d=>({x:d.date,y:toY(d.sw||d.w)})))}" fill="none" stroke="var(--real)" stroke-width="${compact?2:2.5}" stroke-linejoin="round"/>`;
 
   // Raw-Dots — each individual measurement, visible in both compact and fullscreen
   reals.forEach(d => {
-    g+=`<circle class="raw-dot" cx="${sx(+new Date(d.date)).toFixed(1)}" cy="${sy(d.w).toFixed(1)}" r="${compact?2.2:3}" fill="var(--n200)" opacity="${compact?'0.7':'0.85'}"/>`;
+    g+=`<circle class="raw-dot" cx="${sx(+new Date(d.date)).toFixed(1)}" cy="${sy(toY(d.w)).toFixed(1)}" r="${compact?2.2:3}" fill="var(--n200)" opacity="${compact?'0.7':'0.85'}"/>`;
   });
 
   // Letzter realer Punkt — Fokus-Marker mit Glow
   const lr = reals[reals.length-1];
-  const lx = sx(+new Date(lr.date)).toFixed(1), ly = sy(lr.sw||lr.w).toFixed(1);
+  const lx = sx(+new Date(lr.date)).toFixed(1), ly = sy(toY(lr.sw||lr.w)).toFixed(1);
   g+=`<circle class="focus-marker" cx="${lx}" cy="${ly}" r="${compact?6:8}" fill="var(--accent)" fill-opacity="0.18"/>`;
   g+=`<circle class="focus-marker" cx="${lx}" cy="${ly}" r="${compact?3.5:4.5}" fill="var(--accent)"/>`;
 
@@ -2146,9 +2202,9 @@ function renderChart(opts){
   if(!compact && proj.length){
     const end = proj[proj.length-1];
     const ex = sx(+new Date(end.date)).toFixed(1);
-    const ey = sy(end.w).toFixed(1);
+    const ey = sy(toY(end.w)).toFixed(1);
     g+=`<circle class="proj-end-dot" cx="${ex}" cy="${ey}" r="4" fill="var(--proj)"/>`;
-    g+=`<text class="proj-end-dot" x="${(parseFloat(ex)-8).toFixed(1)}" y="${(parseFloat(ey)-8).toFixed(1)}" fill="var(--ink-dim)" font-size="${fs.ann}" text-anchor="end">${end.w.toFixed(1)} kg @ ${fmtD(end.date)}</text>`;
+    g+=`<text class="proj-end-dot" x="${(parseFloat(ex)-8).toFixed(1)}" y="${(parseFloat(ey)-8).toFixed(1)}" fill="var(--ink-dim)" font-size="${fs.ann}" text-anchor="end">${toY(end.w).toFixed(1)} ${wUnit()} @ ${fmtD(end.date)}</text>`;
   }
 
   // Hover-Overlay (Crosshair + Dot) — initial unsichtbar, wird von attachWeightHover gefüllt.
@@ -2179,8 +2235,8 @@ function renderChart(opts){
       heightM,
       // Vereinheitlichte Liste aller Datenpunkte (real + projiziert) für die nearest-X-Suche
       points: [
-        ...reals.map(d => ({ date: d.date, w: (d.sw || d.w), raw: d.w, isReal: true })),
-        ...proj.map(d  => ({ date: d.date, w: d.w, isReal: false })),
+        ...reals.map(d => ({ date: d.date, w: toY(d.sw || d.w), raw: toY(d.w), isReal: true })),
+        ...proj.map(d  => ({ date: d.date, w: toY(d.w), isReal: false })),
       ],
       sx, sy,
     };
@@ -2191,19 +2247,20 @@ function renderChart(opts){
     const info = $('weightTrendInfo');
     if(info){
       const parts = [];
-      const curW = lr.sw || lr.w;
-      if(curW) parts.push(`${curW.toFixed(2)} kg`);
+      const curW_kg = lr.sw || lr.w;
+      const curW = toY(curW_kg);
+      if(curW) parts.push(`${curW.toFixed(P.imperial?1:2)} ${wUnit()}`);
       if(reals.length >= 2){
         const first = reals[0];
-        const delta = curW - (first.sw || first.w);
-        parts.push(`Δ ${delta>=0?'+':''}${delta.toFixed(2)} kg`);
+        const delta = toY(curW_kg - (first.sw || first.w));
+        parts.push(`Δ ${delta>=0?'+':''}${delta.toFixed(P.imperial?1:2)} ${wUnit()}`);
       }
       if(reals.length >= 8){
         const a = reals[reals.length-1].sw || reals[reals.length-1].w;
         const b = reals[reals.length-8].sw || reals[reals.length-8].w;
         if(a && b){
-          const d = a - b;
-          parts.push(`${d>=0?'+':''}${d.toFixed(2)} kg/wk`);
+          const d = toY(a - b);
+          parts.push(`${d>=0?'+':''}${d.toFixed(P.imperial?1:2)} ${wUnit()}/wk`);
         }
       }
       if(proj.length){
@@ -2254,6 +2311,7 @@ function renderLbmChart(opts){
   const padR = compact ? 14  : 28;
   const padT = compact ? 14  : 40;
   const padB = compact ? 24  : 56;
+  const toY  = kg => P.imperial ? kg * KG_LBS : kg;
   const startLbm = stats.startLbm;
   const startW   = stats.startW;
 
@@ -2293,13 +2351,13 @@ function renderLbmChart(opts){
   // Compact: Y-Range nur aus echten LBM- und Projektions-Werten — Bänder breiten die Skala
   // unnötig auf. Vollbild: Bänder + FFMI-Schwellen für vollständige Lesehilfe.
   const allLbm = [
-    ...lbmS.map(p=>p.lbm),
-    ...projLbm.map(p=>p.lbm),
-    ...(compact ? [] : [...band10.map(p=>p.lbm), ...band20.map(p=>p.lbm)]),
+    ...lbmS.map(p=>toY(p.lbm)),
+    ...projLbm.map(p=>toY(p.lbm)),
+    ...(compact ? [] : [...band10.map(p=>toY(p.lbm)), ...band20.map(p=>toY(p.lbm))]),
   ];
   if(!compact && heightM){
     // Vollbild: FFMI-Schwellen in die Skala einbeziehen (Lesehilfe)
-    ffmiLines.forEach(t => allLbm.push(t.ffmi * heightM * heightM));
+    ffmiLines.forEach(t => allLbm.push(toY(t.ffmi * heightM * heightM)));
   }
   // Compact: kein FFMI-Cap in der Skala — würde die Y-Achse auf ~77 kg aufblasen
 
@@ -2308,7 +2366,7 @@ function renderLbmChart(opts){
   const axis = niceAxis(Math.min(...allLbm) - 0.1, Math.max(...allLbm) + 0.1, compact ? 4 : 7);
   const sx = t => padL + (t-minX)/((maxX-minX)||1) * (W-padL-padR);
   const sy = v => padT + (axis.axisMax-v)/((axis.axisMax-axis.axisMin)||1) * (H-padT-padB);
-  const path = arr => arr.map((p,i) => (i?'L':'M') + sx(+new Date(p.date)).toFixed(1) + ',' + sy(p.lbm).toFixed(1)).join(' ');
+  const path = arr => arr.map((p,i) => (i?'L':'M') + sx(+new Date(p.date)).toFixed(1) + ',' + sy(toY(p.lbm)).toFixed(1)).join(' ');
 
   // Font-Größen skalieren mit compact/fullscreen
   const fs = compact
@@ -2318,7 +2376,7 @@ function renderLbmChart(opts){
   // Transparent hit-rect first so mousemove fires over empty chart areas, not just painted lines.
   let g = !compact ? `<rect x="0" y="0" width="${W}" height="${H}" fill="transparent" pointer-events="all"/>` : '';
   // Y-axis: major ticks get gridline + integer label; minor ticks get a small tick mark only.
-  if(!compact) g += `<text x="${padL-10}" y="${padT-10}" fill="var(--axis)" font-size="13" text-anchor="end" letter-spacing="1.5">kg</text>`;
+  if(!compact) g += `<text x="${padL-10}" y="${padT-10}" fill="var(--axis)" font-size="13" text-anchor="end" letter-spacing="1.5">${wUnit()}</text>`;
   axis.ticks.forEach(tick => {
     const yy = sy(tick.v);
     if(yy < padT - 4 || yy > H - padB + 4) return;
@@ -2350,11 +2408,11 @@ function renderLbmChart(opts){
   // FFMI-Schwellen (Vollbild only — Dashboard-Tile bleibt schlank)
   if(!compact){
     ffmiLines.forEach(t => {
-      const lbmVal = t.ffmi * heightM * heightM;
+      const lbmVal = toY(t.ffmi * heightM * heightM);
       if(lbmVal >= axis.axisMin && lbmVal <= axis.axisMax){
         const y = sy(lbmVal);
         g+=`<line class="threshold-line" x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="${t.color}" stroke-width="1" stroke-dasharray="6 4"/>`;
-        g+=`<text x="${padL+8}" y="${y-4}" fill="${t.color}" font-size="${fs.label}" text-anchor="start">${t.label} ≈ ${lbmVal.toFixed(1)} kg</text>`;
+        g+=`<text x="${padL+8}" y="${y-4}" fill="${t.color}" font-size="${fs.label}" text-anchor="start">${t.label} ≈ ${lbmVal.toFixed(1)} ${wUnit()}</text>`;
       }
     });
   }
@@ -2390,13 +2448,13 @@ function renderLbmChart(opts){
   // Raw-LBM-Punkte (vor Glättung) — compact and fullscreen
   lbmS.forEach(p => {
     if(p.raw == null) return;
-    g+=`<circle class="raw-dot" cx="${sx(+new Date(p.date)).toFixed(1)}" cy="${sy(p.raw).toFixed(1)}" r="${compact?2:3}" fill="var(--n200)" opacity="${compact?'0.6':'0.85'}"/>`;
+    g+=`<circle class="raw-dot" cx="${sx(+new Date(p.date)).toFixed(1)}" cy="${sy(toY(p.raw)).toFixed(1)}" r="${compact?2:3}" fill="var(--n200)" opacity="${compact?'0.6':'0.85'}"/>`;
   });
 
   // Letzter realer LBM-Punkt — Fokus-Marker (Farbe folgt lineColor)
   if(lbmS.length){
     const ll = lbmS[lbmS.length-1];
-    const llx = sx(+new Date(ll.date)).toFixed(1), lly = sy(ll.lbm).toFixed(1);
+    const llx = sx(+new Date(ll.date)).toFixed(1), lly = sy(toY(ll.lbm)).toFixed(1);
     g+=`<circle class="focus-marker" cx="${llx}" cy="${lly}" r="${compact?5:7}" fill="${lineColor}" fill-opacity="0.18"/>`;
     g+=`<circle class="focus-marker" cx="${llx}" cy="${lly}" r="${compact?3:4}" fill="${lineColor}"/>`;
   }
@@ -2405,9 +2463,9 @@ function renderLbmChart(opts){
   if(!compact && projLbm.length){
     const last = projLbm[projLbm.length-1];
     const ex = sx(+new Date(last.date)).toFixed(1);
-    const ey = sy(last.lbm).toFixed(1);
+    const ey = sy(toY(last.lbm)).toFixed(1);
     g+=`<circle class="proj-end-dot" cx="${ex}" cy="${ey}" r="4" fill="var(--proj)"/>`;
-    g+=`<text class="proj-end-dot" x="${(parseFloat(ex)-8).toFixed(1)}" y="${(parseFloat(ey)-8).toFixed(1)}" fill="var(--ink-dim)" font-size="${fs.ann}" text-anchor="end">${last.lbm.toFixed(1)} kg @ ${fmtD(last.date)}</text>`;
+    g+=`<text class="proj-end-dot" x="${(parseFloat(ex)-8).toFixed(1)}" y="${(parseFloat(ey)-8).toFixed(1)}" fill="var(--ink-dim)" font-size="${fs.ann}" text-anchor="end">${toY(last.lbm).toFixed(1)} ${wUnit()} @ ${fmtD(last.date)}</text>`;
   }
 
   // Hover-Overlay (Crosshair + Dot) — initial unsichtbar.
@@ -2437,8 +2495,8 @@ function renderLbmChart(opts){
       svg, padT, padB, H, W,
       heightM,
       points: [
-        ...lbmS.map(p => ({ date: p.date, lbm: p.lbm, raw: p.raw, isReal: true })),
-        ...projLbm.map(p => ({ date: p.date, lbm: p.lbm, isReal: false })),
+        ...lbmS.map(p => ({ date: p.date, lbm: toY(p.lbm), raw: p.raw != null ? toY(p.raw) : null, isReal: true })),
+        ...projLbm.map(p => ({ date: p.date, lbm: toY(p.lbm), isReal: false })),
       ],
       sx, sy,
     };
@@ -2448,8 +2506,9 @@ function renderLbmChart(opts){
   const realFrac     = stats.realFrac;
   const totalLoss    = stats.totalLoss;
   const realLbmDelta = stats.deltaLbm;
-  const headerText   = realLbmDelta != null
-    ? `Δ LBM ${realLbmDelta>=0?'+':''}${realLbmDelta.toFixed(2)} kg`
+  const lbmDeltaDisp = realLbmDelta != null ? (P.imperial ? toImperial(realLbmDelta) : realLbmDelta) : null;
+  const headerText   = lbmDeltaDisp != null
+    ? `Δ LBM ${lbmDeltaDisp>=0?'+':''}${lbmDeltaDisp.toFixed(P.imperial?1:2)} ${wUnit()}`
     : '—';
 
   // Color the compact sub-header using the same three-zone logic as the verdict
@@ -2469,10 +2528,105 @@ function renderLbmChart(opts){
   }
 }
 
+// ---------- Entry Modal (batch) ----------
+function openEntry(){
+  const m = document.getElementById('entryModal');
+  if(!m) return;
+  resetEntryRows();
+  m.hidden = false;
+  document.body.style.overflow = 'hidden';
+  playModalEnter(m);
+  const cl = document.getElementById('entryClose'); if(cl) setTimeout(() => cl.focus(), 0);
+  document.addEventListener('keydown', entryKeyHandler);
+}
+function closeEntry(){
+  const m = document.getElementById('entryModal');
+  if(!m) return;
+  m.hidden = true;
+  document.body.style.overflow = '';
+  document.removeEventListener('keydown', entryKeyHandler);
+}
+function entryKeyHandler(e){ if(e.key === 'Escape') closeEntry(); }
+
+function makeEntryRow(dateVal){
+  const div = document.createElement('div');
+  div.className = 'entry-row';
+  const wu = wUnit();
+  const ph = P.imperial ? '188.1' : '85.40';
+  div.innerHTML =
+    `<div class="field"><label>Date</label><input type="date" class="entry-date" value="${dateVal||''}"></div>`+
+    `<div class="field"><label class="entry-w-label">Weight ${wu}</label><input type="text" inputmode="decimal" class="entry-weight" placeholder="${ph}"></div>`+
+    `<div class="field"><label>BF %</label><input type="text" inputmode="decimal" class="entry-bf" placeholder="25.0"></div>`+
+    `<button class="entry-row-remove" type="button" aria-label="Remove row" tabindex="-1">×</button>`;
+  div.querySelector('.entry-row-remove').onclick = () => {
+    const rows = document.getElementById('entryRows');
+    if(rows && rows.children.length > 1){ div.remove(); updateRemoveBtns(); }
+  };
+  // comma → dot normalisation
+  div.querySelectorAll('input.entry-weight, input.entry-bf').forEach(el => {
+    el.addEventListener('input', function(){ const v=this.value.replace(/,/g,'.'); if(v!==this.value) this.value=v; });
+  });
+  return div;
+}
+function updateRemoveBtns(){
+  const rows = document.getElementById('entryRows');
+  if(!rows) return;
+  const btns = rows.querySelectorAll('.entry-row-remove');
+  btns.forEach(b => b.style.visibility = rows.children.length > 1 ? '' : 'hidden');
+}
+function addEntryRow(){
+  const rows = document.getElementById('entryRows');
+  if(!rows) return;
+  let nextDate = '';
+  if(rows.children.length > 0){
+    const last = rows.lastElementChild.querySelector('.entry-date');
+    if(last && last.value){
+      const d = new Date(last.value); d.setDate(d.getDate() + 1);
+      nextDate = d.toISOString().slice(0, 10);
+    }
+  }
+  const row = makeEntryRow(nextDate);
+  rows.appendChild(row);
+  updateRemoveBtns();
+  setTimeout(() => row.querySelector('.entry-weight').focus(), 50);
+}
+function resetEntryRows(){
+  const rows = document.getElementById('entryRows');
+  if(!rows) return;
+  rows.innerHTML = '';
+  rows.appendChild(makeEntryRow(new Date().toISOString().slice(0, 10)));
+  updateRemoveBtns();
+}
+function submitBatch(){
+  const rows = document.getElementById('entryRows');
+  if(!rows) return;
+  let added = 0;
+  rows.querySelectorAll('.entry-row').forEach(row => {
+    const date  = row.querySelector('.entry-date').value;
+    const wRaw  = parseFloat(row.querySelector('.entry-weight').value);
+    const bfStr = row.querySelector('.entry-bf').value;
+    const bf    = bfStr === '' ? null : parseFloat(bfStr);
+    if(!date || isNaN(wRaw)) return;
+    const w  = P.imperial ? wRaw / KG_LBS : wRaw;
+    const ex = DATA.findIndex(d => d.date === date && d.type === 'real');
+    if(ex >= 0) DATA[ex] = {date, w, bf, type:'real'};
+    else DATA.push({date, w, bf, type:'real'});
+    added++;
+  });
+  if(added > 0){
+    save(); render();
+    setStatus(`Added ${added} entr${added===1?'y':'ies'}.`, 'good');
+    resetEntryRows();
+  } else {
+    setStatus('No valid rows — date and weight required.', 'warn');
+  }
+}
+
 // ---------- Actions ----------
 function addEntry(){
   const date=document.getElementById('iDate').value;
-  const w=parseFloat(document.getElementById('iWeight').value);
+  const wRaw=parseFloat(document.getElementById('iWeight').value);
+  const w=P.imperial ? wRaw/KG_LBS : wRaw;
   const bfRaw=document.getElementById('iBf').value;
   const bf=bfRaw===''?null:parseFloat(bfRaw);
   if(!date||isNaN(w)){ setStatus('Date and weight required.'); return; }
@@ -2605,6 +2759,7 @@ function syncParamInputs(){
   document.getElementById('iHeight').value  = P.height ?? '';
   const iAct = document.getElementById('iActFactor');
   if(iAct) iAct.value = P.actFactor ?? 1.375;
+  applySystem();
   updateParamsPreview();
 }
 
@@ -2646,6 +2801,23 @@ function bind(){
     const el = document.getElementById(id); if(!el) return;
     el.addEventListener('input',function(){ const v=this.value.replace(/,/g,'.'); if(v!==this.value) this.value=v; });
   });
+
+  // Entry panel → batch entry modal.
+  const entryHead = document.getElementById('entryHead');
+  if(entryHead){
+    entryHead.addEventListener('click', openEntry);
+    entryHead.addEventListener('keydown', e => { if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openEntry(); } });
+  }
+  const entryClose = document.getElementById('entryClose');
+  if(entryClose) entryClose.addEventListener('click', closeEntry);
+  const entryModal = document.getElementById('entryModal');
+  if(entryModal){
+    entryModal.addEventListener('click', e => { if(e.target.dataset && e.target.dataset.close) closeEntry(); });
+  }
+  const addRowBtn = document.getElementById('addRowBtn');
+  if(addRowBtn) addRowBtn.addEventListener('click', addEntryRow);
+  const batchAddBtn = document.getElementById('batchAddBtn');
+  if(batchAddBtn) batchAddBtn.addEventListener('click', submitBatch);
 
   // Records preview → full modal. Click + keyboard (Enter/Space) trigger it.
   const recordsHead = document.getElementById('recordsHead');
