@@ -671,7 +671,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass · Watcher <span class="ver">v1.10.4</span></h1>
+    <h1>Lean Body Mass · Watcher <span class="ver">v1.10.5</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -1557,20 +1557,28 @@ function render(){
     setCellStatus('sLbmReal', lbmFrac7Status);
   }
 
+  // Build projection once here — used for the Weight tooltip and ETA block below.
+  const proj = buildProjection();
+
   // Stripe cell hover titles — desktop context via native tooltip (title attribute).
-  // Shows non-redundant secondary info: raw vs smoothed, from-to ranges, clinical zones.
+  // Shows non-redundant secondary info: remaining-to-goal, from-to ranges, clinical zones.
   {
     const cellOf = id => { const el = $(id); return el ? el.closest('.cell') : null; };
-    // Weight: remaining to goal (current LBM ÷ (1 − goalBF%) = target weight)
-    if(sW != null && r && r.lbm && P.goalBf){
-      const goalW    = r.lbm / (1 - P.goalBf / 100);
-      const remaining = sW - goalW;
-      const remDisp  = (P.imperial ? toImperial(Math.abs(remaining)) : Math.abs(remaining)).toFixed(1);
-      const goalDisp = (P.imperial ? toImperial(goalW) : goalW).toFixed(1);
-      const c = cellOf('sWeight');
-      if(c) c.title = remaining > 0.1
-        ? `${remDisp} ${wu} to goal  ·  Target: ${goalDisp} ${wu} @ ${(+P.goalBf).toFixed(1)}% BF`
-        : `Goal reached  ·  Target was ${goalDisp} ${wu} @ ${(+P.goalBf).toFixed(1)}% BF`;
+    // Weight: remaining to goal — use the actual projection endpoint so the number
+    // matches the chart and ETA exactly (projection accounts for LBM loss during cut).
+    if(sW != null && P.goalBf){
+      // proj endpoint is the most accurate goal weight; fallback to static formula if no proj.
+      const projGoalW = proj.length ? proj[proj.length-1].w : null;
+      const goalW     = projGoalW ?? (r && r.lbm ? r.lbm / (1 - P.goalBf / 100) : null);
+      if(goalW != null){
+        const remaining = sW - goalW;
+        const remDisp  = (P.imperial ? toImperial(Math.abs(remaining)) : Math.abs(remaining)).toFixed(1);
+        const goalDisp = (P.imperial ? toImperial(goalW) : goalW).toFixed(1);
+        const c = cellOf('sWeight');
+        if(c) c.title = remaining > 0.1
+          ? `${remDisp} ${wu} to goal  ·  Target: ${goalDisp} ${wu} @ ${(+P.goalBf).toFixed(1)}% BF`
+          : `Goal reached  ·  Target was ${goalDisp} ${wu} @ ${(+P.goalBf).toFixed(1)}% BF`;
+      }
     }
     // Weight trend: 7-entries-ago → now
     if(trendKg != null && reals.length >= 8 && sW != null){
@@ -1636,8 +1644,7 @@ function render(){
   }
   $('goalBfInfo').textContent = (+P.goalBf).toFixed(1);
 
-  // ETA: Enddatum, verbleibende Tage, errechnetes Zielgewicht aus Projektion
-  const proj = buildProjection();
+  // ETA: Enddatum, verbleibende Tage, errechnetes Zielgewicht aus Projektion (proj hoisted above)
   if(proj.length){
     const end = proj[proj.length-1];
     const endDate = new Date(end.date);
@@ -1645,7 +1652,7 @@ function render(){
     const today = new Date(); today.setHours(0,0,0,0);
     const remDays = Math.max(0, Math.round((endDate-today)/86400000));
     $('etaDays').textContent = remDays+' d (~'+(remDays/7).toFixed(0)+' wk)';
-    $('etaWeight').textContent = end.w.toFixed(1)+' kg';
+    $('etaWeight').textContent = (P.imperial ? toImperial(end.w).toFixed(1)+' lbs' : end.w.toFixed(1)+' kg');
   } else {
     const reachedAlready = headBf!=null && headBf<=P.goalBf;
     $('etaDate').textContent = reachedAlready?'reached':'—';
