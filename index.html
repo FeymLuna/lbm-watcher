@@ -671,7 +671,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass · Watcher <span class="ver">v1.10.3</span></h1>
+    <h1>Lean Body Mass · Watcher <span class="ver">v1.10.4</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -1511,7 +1511,7 @@ function render(){
     const d7disp = P.imperial ? toImperial(lbmDelta7) : lbmDelta7;
     const sign = d7disp>=0?'+':'';
     $('sLbmReal').innerHTML = `${sign}${d7disp.toFixed(P.imperial?1:2)}<small> ${wu}/wk</small>`;
-    $('sLbmReal').title = lbmSeries.length >= 8 ? 'LBM change over last 7 entries (smoothed)' : 'LBM change since first entry (smoothed, <8 entries)';
+    $('sLbmReal').removeAttribute('title'); // cell-level tooltip set below
   } else { $('sLbmReal').innerHTML='—<small> '+wu+'/wk</small>'; }
   $('sBmi').textContent  = (r&&r.bmi!=null)?r.bmi.toFixed(2):'—';
   $('sFfmi').textContent = (r&&r.ffmi)?r.ffmi.toFixed(2):'—';
@@ -1561,14 +1561,16 @@ function render(){
   // Shows non-redundant secondary info: raw vs smoothed, from-to ranges, clinical zones.
   {
     const cellOf = id => { const el = $(id); return el ? el.closest('.cell') : null; };
-    // Weight: raw vs smoothed difference
-    if(sW != null && headIdx >= 0){
-      const rawW = DATA[headIdx].w;
-      const rawD = P.imperial ? toImperial(rawW).toFixed(1) : rawW.toFixed(2);
-      const smD  = P.imperial ? toImperial(sW).toFixed(1)  : sW.toFixed(2);
-      const dif  = sW - rawW;
+    // Weight: remaining to goal (current LBM ÷ (1 − goalBF%) = target weight)
+    if(sW != null && r && r.lbm && P.goalBf){
+      const goalW    = r.lbm / (1 - P.goalBf / 100);
+      const remaining = sW - goalW;
+      const remDisp  = (P.imperial ? toImperial(Math.abs(remaining)) : Math.abs(remaining)).toFixed(1);
+      const goalDisp = (P.imperial ? toImperial(goalW) : goalW).toFixed(1);
       const c = cellOf('sWeight');
-      if(c) c.title = `Raw: ${rawD} ${wu}  ·  Smoothed: ${smD} ${wu}  ·  Δ ${dif>=0?'+':''}${(P.imperial?toImperial(dif):dif).toFixed(P.imperial?1:2)}`;
+      if(c) c.title = remaining > 0.1
+        ? `${remDisp} ${wu} to goal  ·  Target: ${goalDisp} ${wu} @ ${(+P.goalBf).toFixed(1)}% BF`
+        : `Goal reached  ·  Target was ${goalDisp} ${wu} @ ${(+P.goalBf).toFixed(1)}% BF`;
     }
     // Weight trend: 7-entries-ago → now
     if(trendKg != null && reals.length >= 8 && sW != null){
@@ -1598,15 +1600,15 @@ function render(){
       const pct = (r.lbm / sW * 100).toFixed(1);
       const c = cellOf('sLbm'); if(c) c.title = `${pct}% of body weight is lean mass`;
     }
-    // LBM Δ: fraction of total weight change
-    if(lbmDelta7 != null && lbmSeries.length >= 2){
-      const wAt = date => { const idx=DATA.findIndex(d=>d.date===date&&d.type==='real'); return idx>=0?smooth(idx):null; };
-      const sE = lbmSeries.length>=8 ? lbmSeries[lbmSeries.length-8] : lbmSeries[0];
-      const wS2 = wAt(sE.date), wE2 = wAt(lbmSeries[lbmSeries.length-1].date);
-      if(wS2 && wE2 && Math.abs(wE2-wS2) > 0.05){
-        const frac = (Math.abs(lbmDelta7)/Math.abs(wE2-wS2)*100).toFixed(0);
-        const c = cellOf('sLbmReal'); if(c) c.title = `${frac}% of weight change was lean mass`;
-      }
+    // LBM Δ: 7-entries-ago → now (same pattern as weight trend and BF trend)
+    if(lbmSeries.length >= 2){
+      const sE  = lbmSeries.length >= 8 ? lbmSeries[lbmSeries.length-8] : lbmSeries[0];
+      const eE  = lbmSeries[lbmSeries.length-1];
+      const fD  = P.imperial ? toImperial(sE.lbm).toFixed(1) : sE.lbm.toFixed(2);
+      const tD  = P.imperial ? toImperial(eE.lbm).toFixed(1) : eE.lbm.toFixed(2);
+      const lbl = lbmSeries.length >= 8 ? '7 entries ago' : 'First entry';
+      const c = cellOf('sLbmReal');
+      if(c) c.title = `${lbl}: ${fD} ${wu}  →  Now: ${tD} ${wu}`;
     }
     // FFMI: zone
     if(r && r.ffmi != null){
