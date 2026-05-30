@@ -355,10 +355,10 @@
   .height-row > .field { flex: 2; margin-bottom: 0; min-width: 0; }
   .height-ft-pair { flex: 2; display: flex; gap: 8px; }
   .height-ft-pair > .field { flex: 1; margin-bottom: 0; min-width: 0; }
-  .height-unit-toggle { flex: 2; display: flex; flex-direction: column; gap: 0; }
+  .height-unit-toggle { flex: 2.4; display: flex; flex-direction: column; gap: 0; min-width: 0; }
   .height-unit-spacer { display: block; font-size: 9px; line-height: 1.5; margin-bottom: 5px; visibility: hidden; pointer-events: none; }
   .height-unit-btns { display: flex; gap: 4px; }
-  .height-unit-btns .unit-btn { flex: 1; padding: 14px 8px; }
+  .height-unit-btns .unit-btn { flex: 1; padding: 14px 4px; font-size: 8px; letter-spacing: 0.1em; }
   .params-peek .pcell-btn { display: flex; align-items: center; justify-content: center; padding: 10px 12px; }
   .btn-calc-tdee { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; padding: 8px 12px; border-radius: var(--r); border: 1.5px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background var(--dur) var(--ease), color var(--dur) var(--ease); width: 100%; }
   .btn-calc-tdee:hover { background: var(--accent); color: #0b0c08; }
@@ -666,7 +666,7 @@
 <body>
 <div class="wrap">
   <div class="masthead">
-    <h1>Lean Body Mass · Watcher <span class="ver">v1.10.0</span></h1>
+    <h1>Lean Body Mass · Watcher <span class="ver">v1.10.1</span></h1>
     <div class="eta">
       <div class="blk primary">
         <div class="lbl">Target date (≤<span id="goalBfInfo">12</span>% BF)</div>
@@ -924,18 +924,18 @@
           <div class="params-section-head">
             <h3>Personal</h3>
           </div>
-          <div class="params-section-head" style="margin-bottom:6px;">
-            <h3 style="color:var(--ink-faint);font-size:9px;">System</h3>
-          </div>
-          <div class="unit-toggle" style="margin-bottom:16px;">
-            <button class="unit-btn active" id="unitCmBtn" type="button">Metric</button>
-            <button class="unit-btn" id="unitFtBtn" type="button">Imperial</button>
-          </div>
           <div class="height-row">
             <div id="heightCmField" class="field" style="margin-bottom:0;"><label>Height cm</label><input type="text" inputmode="decimal" id="iHeight" placeholder="e.g. 175"></div>
             <div id="heightFtField" class="height-ft-pair" style="display:none;">
               <div class="field"><label>Height ft</label><input type="text" inputmode="numeric" id="iFt" placeholder="5"></div>
               <div class="field"><label>in</label><input type="text" inputmode="decimal" id="iIn" placeholder="9.0"></div>
+            </div>
+            <div class="unit-toggle height-unit-toggle">
+              <span class="height-unit-spacer" aria-hidden="true">&nbsp;</span>
+              <div class="height-unit-btns">
+                <button class="unit-btn active" id="unitCmBtn" type="button">Metric</button>
+                <button class="unit-btn" id="unitFtBtn" type="button">Imperial</button>
+              </div>
             </div>
           </div>
           <div class="field">
